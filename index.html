@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="./escudo.png">
+  <style>
+        :root {
+            /* ==========================================
+               PALETA INSTITUCIONAL
+               Colores tomados del escudo de la Escuela Técnica
+               N° 35 D.E. 18 "Ing. Eduardo Latzina"
+               ========================================== */
+            --rojo-institucional: #E1301E;
+            --rojo-institucional-oscuro: #b3271a;
+            --dorado: #EFE375;
+            --dorado-oscuro: #d6c74e;
+            --azul-institucional: #215288;
+            --azul-institucional-oscuro: #173c63;
+            --verde-institucional: #36492E;
+
+            /* Roles funcionales de color (mapeados a la paleta institucional
+               para no tener que tocar cada regla CSS una por una) */
+            --primary: var(--azul-institucional);       /* navegación / información */
+            --primary-light: #3d72ac;
+            --primary-dark: var(--azul-institucional-oscuro);
+            --brand: var(--rojo-institucional);          /* branding / acciones principales */
+            --brand-dark: var(--rojo-institucional-oscuro);
+            --accent: var(--dorado);                     /* acentos, bordes, detalles */
+            --danger: #c0392b;
+            --success: var(--verde-institucional);
+
+            --bg-main: #f7f7f4;
+            --bg-card: #ffffff;
+            --text-dark: #14140f;
+            --text-muted: #5b5b52;
+            --border: #d9d6c9;
+            --radius: 8px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --sidebar-width: 250px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body { background-color: var(--bg-main); color: var(--text-dark); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
+
+        /* ── HEADER ── */
+        header {
+            background-color: var(--brand);
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            height: 56px;
+        }
+        .header-title { display: flex; align-items: center; gap: 10px; }
+        .header-emblem { width: 38px; height: 38px; border-radius: 8px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; padding: 2px; }
+        .header-emblem img, .logo-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .mobile-menu-btn { display: none; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; width: 38px; height: 38px; border-radius: 6px; font-size: 1.1rem; cursor: pointer; margin-right: 4px; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 149; }
+        .sidebar-overlay.open { display: block; }
+        .header-title h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.2px; }
+        .header-title p { font-size: 0.75rem; color: #93c5fd; }
+        .simulator-badge { background-color: var(--accent); color: var(--primary-dark); padding: 3px 10px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; }
+
+        /* ── SIDEBAR ── */
+        #sidebar {
+            position: fixed;
+            top: 56px; bottom: 0; left: 0;
+            width: var(--sidebar-width);
+            background-color: #0f172a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            z-index: 90;
+            border-right: 1px solid #1e293b;
+            overflow-y: auto;
+        }
+        .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: left;
+            width: 100%;
+            transition: background 0.15s, color 0.15s;
+        }
+        .nav-btn:hover { background: #1e293b; color: #e2e8f0; }
+        .nav-btn.active { background: #1e40af; color: white; }
+        .nav-btn .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+        .sidebar-footer { padding: 14px 16px; border-top: 1px solid #1e293b; font-size: 0.68rem; color: #475569; line-height: 1.5; }
+        .sidebar-footer strong { color: #94a3b8; display: block; font-size: 0.72rem; margin-bottom: 2px; }
+
+        /* Role selector in sidebar */
+        .sidebar-role { padding: 10px 12px; border-top: 1px solid #1e293b; }
+        .sidebar-role label { display: block; font-size: 0.7rem; color: #64748b; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-role select { width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; }
+
+        /* ── MAIN LAYOUT ── */
+        #app-body { margin-top: 56px; margin-left: var(--sidebar-width); min-height: calc(100vh - 56px); }
+
+        /* ── SECTIONS ── */
+        .app-section { display: none; padding: 24px; max-width: 1200px; }
+        .app-section.visible { display: block; }
+
+        /* ── CARDS ── */
+        .card { background: var(--bg-card); border-radius: var(--radius); border: 1px solid #e2e8f0; padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .card-title { font-size: 1.05rem; color: var(--primary); margin-bottom: 14px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* ── FORM ELEMENTS (unchanged) ── */
+        .role-bar { background-color: #e2e8f0; padding: 8px 20px; display: flex; align-items: center; gap: 12px; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+        .role-bar select { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); font-weight: 600; background: white; color: var(--primary); }
+
+        .form-group { margin-bottom: 16px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        label { display: block; font-size: 0.83rem; font-weight: 600; margin-bottom: 4px; color: #334155; }
+        input[type="text"], input[type="date"], input[type="email"], input[type="password"], select, textarea {
+            width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 0.93rem; background: #fff; color: var(--text-dark); transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        input[disabled], select[disabled], textarea[disabled] { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
+        .radio-group, .checkbox-group { display: flex; gap: 14px; margin-top: 4px; flex-wrap: wrap; }
+        .radio-option, .checkbox-option { display: flex; align-items: center; gap: 5px; font-size: 0.93rem; cursor: pointer; }
+
+        /* ── BUTTONS ── */
+        .btn { padding: 9px 18px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; font-size: 0.93rem; display: inline-flex; align-items: center; gap: 7px; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-success:hover { background-color: #059669; }
+        .btn-secondary { background-color: #e2e8f0; color: #334155; }
+        .btn-secondary:hover { background-color: #cbd5e1; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+
+        /* ── WORKFLOW INDICATORS & SECTIONS (unchanged) ── */
+        .workflow-indicator { display: flex; justify-content: space-between; margin-bottom: 22px; border-radius: 30px; overflow: hidden; background-color: #e2e8f0; }
+        .workflow-step { flex: 1; text-align: center; padding: 7px 8px; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+        .workflow-step.completed { background-color: #d1fae5; color: #065f46; }
+        .workflow-step.current { background-color: #dbeafe; color: #1e40af; }
+
+        .section-block { background: #fafafa; border: 1px solid #e2e8f0; padding: 14px; border-radius: 6px; margin-bottom: 18px; }
+        .section-block h3 { font-size: 0.98rem; color: var(--primary-dark); margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+        .info-tag-container { background-color: #eff6ff; border-left: 4px solid var(--primary-light); padding: 9px; margin-bottom: 14px; font-size: 0.83rem; color: #1e40af; }
+
+        /* ── BADGE ── */
+        .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; display: inline-block; margin-top: 4px; }
+        .badge-leve { background-color: #fef3c7; color: #d97706; }
+        .badge-grave { background-color: #fee2e2; color: #dc2626; }
+        .badge-muygrave { background-color: #fca5a5; color: #7f1d1d; }
+        .badge-suspenso { background-color: #f1f5f9; color: #475569; }
+        .badge-pendiente { background-color: #fef3c7; color: #92400e; }
+        .badge-resuelto { background-color: #d1fae5; color: #065f46; }
+        .badge-anulado { background-color: #fee2e2; color: #991b1b; }
+
+        /* ── REPORTS LIST ── */
+        .report-item { padding: 11px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 9px; cursor: pointer; transition: all 0.2s; background-color: #f8fafc; }
+        .report-item:hover { border-color: var(--primary-light); background-color: #f0fdf4; }
+        .report-item.active { border-left: 5px solid var(--primary); background-color: #eff6ff; font-weight: 500; }
+        .report-list { list-style: none; }
+
+        /* ── STUDENTS LIST — new table-style professional grid ── */
+        .students-grid { display: flex; flex-direction: column; gap: 0; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: white; box-shadow: var(--shadow); }
+        .students-table-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 80px 80px 80px 80px 110px;
+            gap: 0;
+            background: #f1f5f9;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 9px 18px;
+        }
+        .students-table-header span { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; }
+        .student-card {
+            display: grid;
+            grid-template-columns: 2fr 1fr 80px 80px 80px 80px 110px;
+            align-items: center;
+            gap: 0;
+            padding: 12px 18px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border-bottom: 1px solid #f1f5f9;
+            background: white;
+        }
+        .student-card:last-child { border-bottom: none; }
+        .student-card:hover { background: #f8fafc; }
+        .student-card-name-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .student-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            color: white; display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700; flex-shrink: 0; letter-spacing: 0.5px;
+        }
+        .student-card-info h4 { font-size: 0.88rem; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .student-card-info p { font-size: 0.73rem; color: #94a3b8; margin-top: 1px; }
+        .student-col-value { font-size: 0.82rem; color: #334155; font-weight: 500; }
+        .student-col-value.dni { font-size: 0.75rem; color: #64748b; font-family: monospace; }
+        .sev-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+        .sev-count { font-size: 0.82rem; font-weight: 700; }
+        .sev-count.leve-c { color: #b45309; }
+        .sev-count.grave-c { color: #dc2626; }
+        .sev-count.mg-c { color: #9333ea; }
+        .sev-count.total-c { color: #1e3a8a; }
+        .sev-count.zero { color: #cbd5e1; font-weight: 400; }
+        .student-row-action { display: flex; justify-content: flex-end; }
+        .btn-ver-detalle { font-size: 0.75rem; font-weight: 600; padding: 5px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; color: #334155; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+        .btn-ver-detalle:hover { background: #1e3a8a; color: white; border-color: #1e3a8a; }
+        .link-btn { font-size: 0.78rem; color: var(--primary-light); background: none; border: none; cursor: pointer; font-weight: 600; white-space: nowrap; }
+        .link-btn:hover { text-decoration: underline; }
+        .student-card-footer { display: none; }
+
+        /* ── STUDENT DETAIL VIEW — new professional layout ── */
+        .student-detail-strip {
+            display: flex; align-items: center; gap: 20px;
+            background: linear-gradient(135deg, #0f2159 0%, #1e3a8a 60%, #1d4ed8 100%);
+            border-radius: 12px; padding: 24px 28px; color: white; margin-bottom: 24px;
+            box-shadow: 0 4px 20px rgba(30,58,138,0.25);
+            position: relative; overflow: hidden;
+        }
+        .student-detail-strip::after { content:''; position:absolute; right:-20px; top:-20px; width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,0.04); }
+        .student-avatar-lg { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.3); backdrop-filter: blur(4px); }
+        .student-detail-info { flex: 1; }
+        .student-detail-info h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 3px; letter-spacing: -0.3px; }
+        .student-detail-info p { font-size: 0.8rem; color: rgba(255,255,255,0.7); }
+        .student-detail-info .detail-sub { display: flex; gap: 16px; margin-top: 4px; flex-wrap: wrap; }
+        .detail-chip { font-size: 0.72rem; background: rgba(255,255,255,0.12); padding: 2px 9px; border-radius: 20px; color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.15); }
+        /* ── Resumen institucional de informes ── */
+        .kpi-section-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .kpi-section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+        .overview-dashboard { display:grid; grid-template-columns:minmax(180px, .78fr) minmax(0, 2fr); background:var(--bg-card); border:1px solid var(--border); border-radius:8px; margin-bottom:22px; overflow:hidden; }
+        .overview-total { display:flex; flex-direction:column; justify-content:center; padding:22px 26px; border-right:1px solid var(--border); background:#f8f7f2; }
+        .overview-kicker { color:var(--text-muted); font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+        .overview-value { color:var(--azul-institucional-oscuro); font-size:clamp(2.6rem, 5vw, 3.65rem); font-weight:750; letter-spacing:-.06em; line-height:1.1; font-variant-numeric:tabular-nums; }
+        .overview-caption { color:var(--text-muted); font-size:.78rem; margin-top:5px; }
+        .overview-breakdown { display:grid; align-content:center; gap:16px; padding:20px 26px; }
+        .overview-row { min-width:0; }
+        .overview-row-head { display:flex; justify-content:space-between; align-items:baseline; gap:16px; margin-bottom:6px; }
+        .overview-row-label { color:#34372f; font-size:.84rem; font-weight:600; }
+        .overview-row-value { color:var(--text-dark); font-size:.93rem; font-weight:700; font-variant-numeric:tabular-nums; }
+        .overview-meter { height:5px; border-radius:999px; background:#eeede7; overflow:hidden; }
+        .overview-meter > span { display:block; height:100%; width:0; border-radius:inherit; transition:width .25s ease; }
+        .overview-pending .overview-meter > span { background:var(--dorado-oscuro); }
+        .overview-resolved .overview-meter > span { background:var(--verde-institucional); }
+        .overview-cancelled .overview-meter > span { background:var(--rojo-institucional); }
+        @media (max-width: 640px) {
+            .overview-dashboard { grid-template-columns:1fr; }
+            .overview-total { padding:17px 20px; border-right:0; border-bottom:1px solid var(--border); }
+            .overview-value { font-size:2.7rem; }
+            .overview-breakdown { gap:14px; padding:18px 20px; }
+        }
+        .line-icon { display:inline-block; width:18px; height:18px; flex:0 0 18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; vertical-align:middle; }
+        .nav-icon { display:inline-flex; align-items:center; justify-content:center; width:20px; color:currentColor; }
+        .inline-icon { width:17px; height:17px; margin-right:5px; vertical-align:-3px; }
+        .empty-icon { display:block; width:30px; height:30px; margin:0 auto 10px; color:#7c8588; }
+
+        /* ── MODAL HISTORIAL ── */
+        .historial-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:300; display:none; align-items:center; justify-content:center; padding:16px; }
+        .historial-modal-overlay.open { display:flex; }
+        .historial-modal-box { background:white; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-width:680px; width:100%; max-height:88vh; display:flex; flex-direction:column; }
+        .historial-modal-header { padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .historial-modal-header h3 { font-size:1rem; font-weight:700; color:var(--text-dark); }
+        .historial-modal-body { padding:18px 20px; overflow-y:auto; flex:1; }
+
+        /* ── REPORT DETAIL ITEMS — clean card style ── */
+        .report-history-item { padding: 14px 16px; border: 1px solid #e8edf3; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #cbd5e1; background: #fafbfd; transition: box-shadow 0.15s; }
+        .report-history-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+        .report-history-item.leve { border-left-color: #f59e0b; background: #fffdf7; }
+        .report-history-item.grave { border-left-color: #ef4444; background: #fff8f8; }
+        .report-history-item.muy_grave { border-left-color: #9333ea; background: #fdf8ff; }
+        .report-history-item.consejo_aula { border-left-color: #7c3aed; }
+        .report-history-item.consejo { border-left-color: #2563eb; }
+        .report-history-item.suspenso { border-left-color: #94a3b8; }
+        .report-history-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; flex-wrap: wrap; gap: 6px; }
+        .report-history-item h5 { font-size: 0.88rem; font-weight: 600; color: var(--text-dark); line-height: 1.4; }
+        .report-history-item p { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* ── ALUMNO DETAIL FICHA ── */
+        .alumno-ficha { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+        .alumno-ficha-field { background:#f8fafc; border:1px solid #e8edf3; border-radius:7px; padding:10px 14px; }
+        .alumno-ficha-field .field-label { font-size:0.67rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#94a3b8; margin-bottom:3px; }
+        .alumno-ficha-field .field-val { font-size:0.88rem; font-weight:600; color:#1e293b; }
+
+        /* ── FILTERS ── */
+        .filters-bar { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 18px; box-shadow: var(--shadow); }
+        .filters-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+
+        /* ── TABS ── */
+        .tabs-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .tab-btn { padding: 7px 14px; border-radius: 6px; border: none; font-size: 0.83rem; font-weight: 600; cursor: pointer; transition: all 0.15s; background: #f1f5f9; color: #475569; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-btn .tab-count { font-size: 0.7rem; background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
+        .tab-btn:not(.active) .tab-count { background: #e2e8f0; color: #64748b; }
+
+        /* ── TOAST ── */
+        .toast-container { position: fixed; bottom: 18px; right: 18px; z-index: 9999; }
+        .toast { background-color: #1e293b; color: white; padding: 11px 20px; border-radius: 6px; box-shadow: var(--shadow); margin-top: 8px; display: flex; align-items: center; gap: 8px; animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* ── MODAL ── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 700px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; }
+        .modal-header { padding: 18px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .modal-header h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-dark); }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 14px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0; flex-wrap: wrap; }
+        .btn-close { display:inline-flex; align-items:center; justify-content:center; background:none; border:none; padding:4px; cursor:pointer; color:#64748b; line-height:1; }
+        .btn-close:hover { color: #0f172a; }
+        #modal-password.forced .btn-close,
+        #modal-password.forced [data-close-modal="modal-password"] { display: none !important; }
+
+        /* ── MODAL DETALLE — refined sections ── */
+        .modal-section-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; margin-bottom: 8px; margin-top: 16px; }
+        .modal-section-title:first-child { margin-top: 0; }
+        .modal-field-box { font-size: 0.88rem; color: #334155; background: #f8fafc; padding: 11px 14px; border-radius: 7px; border: 1px solid #e8edf3; line-height: 1.6; }
+        .modal-field-box.student-text { background: #fffdf0; border-color: #fde68a; }
+        .modal-field-box.anulado { background: #fff1f2; border-color: #fca5a5; color: #991b1b; }
+        .modal-student-header { display: flex; align-items: center; gap: 14px; padding: 16px; background: linear-gradient(135deg, #0f2159 0%, #1e3a8a 100%); border-radius: 10px; color: white; margin-bottom: 18px; }
+        .modal-avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 800; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.25); }
+        .modal-student-info h4 { font-size: 1rem; font-weight: 800; margin-bottom: 2px; }
+        .modal-student-info p { font-size: 0.75rem; color: rgba(255,255,255,0.75); }
+        .modal-badges-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+        .modal-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+        .modal-meta-cell { background: #f8fafc; border: 1px solid #e8edf3; border-radius: 7px; padding: 10px 13px; }
+        .modal-meta-cell .meta-label { font-size: 0.67rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #94a3b8; margin-bottom: 3px; }
+        .modal-meta-cell .meta-val { font-size: 0.85rem; font-weight: 600; color: #1e293b; }
+
+        /* ── BACK BTN ── */
+        .back-btn { display: flex; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; color: #64748b; font-size: 0.9rem; font-weight: 600; padding: 0; margin-bottom: 18px; }
+        .back-btn:hover { color: var(--primary); }
+
+
+        /* ── BACKEND CONSOLE ── */
+        .console-card { background: #1e293b; color: #f8fafc; border-radius: var(--radius); padding: 14px; margin-top: 16px; }
+        .console-title { color: #38bdf8; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
+        #backendLogs { font-family: monospace; font-size: 0.82rem; overflow-x: auto; white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
+
+        /* ── SEARCH BOX ── */
+        .search-box { position: relative; }
+        .search-box input { padding-left: 32px; }
+        .search-box::before { content:''; position:absolute; left:10px; top:50%; width:11px; height:11px; border:1.5px solid #64748b; border-radius:50%; transform:translateY(-60%); }
+        .search-box::after { content:''; position:absolute; left:21px; top:calc(50% + 3px); width:5px; border-top:1.5px solid #64748b; transform:rotate(45deg); transform-origin:left center; }
+        #studentSearchResults { display: none; position: absolute; z-index: 10; left: 0; right: 0; background-color: #fff; border: 1px solid var(--border); border-radius: 6px; margin-top: 4px; max-height: 260px; overflow-y: auto; box-shadow: var(--shadow); }
+
+        /* ── PAGE TITLE ── */
+        .page-title { font-size: 1.4rem; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; }
+        .page-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+        .empty-state .empty-icon { margin-bottom: 10px; }
+
+        /* PDF button */
+        .btn-pdf { background: #1e293b; color: white; }
+        .btn-pdf:hover { background: #0f172a; }
+
+        @media (max-width: 900px) {
+            .mobile-menu-btn { display: inline-block; }
+            #sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.2s ease;
+                z-index: 150;
+                box-shadow: 4px 0 16px rgba(0,0,0,0.25);
+            }
+            #sidebar.open { transform: translateX(0); }
+            #app-body { margin-left: 0; }
+            .charts-row { grid-template-columns: 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+            .modal-content { width: 95% !important; max-height: 90vh; }
+        }
+        /* ==========================================
+           LOGIN
+           ========================================== */
+        body.logged-out header,
+        body.logged-out #sidebar,
+        body.logged-out .sidebar-overlay,
+        body.logged-out #app-body,
+        body.logged-out .toast-container { display: none !important; }
+        body.logged-in #login-screen { display: none !important; }
+
+        #auth-loading {
+    position:fixed; inset:0; z-index:10000; display:none; align-items:center; justify-content:center;
+    flex-direction:column; gap:12px; background:#f8f7f2; color:#59616a;
+    font-size:.85rem; letter-spacing:.01em;
+  }
+  #auth-loading-spinner {
+    width:26px; height:26px; border:2px solid #dedbd2; border-top-color:#a03a2b;
+    border-radius:50%; animation:auth-loading-spin .8s linear infinite;
+  }
+  @keyframes auth-loading-spin { to { transform:rotate(360deg); } }
+  html.auth-session-checking body > :not(#auth-loading) { visibility:hidden !important; }
+  html.auth-session-checking #auth-loading { display:flex; }
+  html.auth-session-checking, html.auth-session-checking body { background:#f8f7f2; }
+  #login-screen {
+            min-height: 100vh; width: 100%;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(160deg, var(--azul-institucional) 0%, var(--azul-institucional-oscuro) 55%, #0e223a 100%);
+            padding: 20px;
+        }
+        .login-box {
+            background: var(--bg-card); border-radius: 14px; padding: 34px 30px;
+            width: 100%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+            text-align: center;
+        }
+        .login-logo { width: 84px; height: 84px; object-fit: contain; margin: 0 auto 12px; display: block; }
+        .login-box h1 { font-size: 1.05rem; color: var(--text-dark); margin-bottom: 2px; }
+        .login-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
+        .login-demo-notice { background: #fffbeb; border: 1px solid var(--accent); color: #5c5220; font-size: 0.76rem; border-radius: 6px; padding: 8px 10px; margin-bottom: 16px; text-align: left; }
+        #loginForm { text-align: left; }
+        #loginForm label { font-size: 0.8rem; font-weight: 600; color: var(--text-dark); display:block; }
+        #loginForm input[type=email], #loginForm input[type=password] { width: 100%; margin-top: 4px; }
+        .login-error { background: #fdecea; color: var(--danger); border: 1px solid #f5b7b1; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; margin-top: 12px; }
+        .btn-brand { background-color: var(--brand); color: #fff; }
+        .btn-brand:hover { background-color: var(--brand-dark); }
+        .login-demo-users { margin-top: 18px; text-align: left; font-size: 0.78rem; color: var(--text-muted); }
+        .login-demo-users summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+        #demo-users-list { margin-top: 8px; max-height: 160px; overflow-y: auto; border-top: 1px solid var(--border); padding-top: 8px; }
+        .demo-user-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; cursor: pointer; }
+        .demo-user-row:hover { color: var(--primary); }
+
+        @media (max-width: 480px) {
+            header { padding: 10px 12px; }
+            .header-title h1 { font-size: 0.95rem; }
+            .header-title p { font-size: 0.7rem; }
+        }
+        /* Institucional: una paleta consistente y controles cómodos en todas las vistas. */
+        :root {
+            --primary: var(--rojo-institucional);
+            --primary-light: var(--azul-institucional);
+            --primary-dark: var(--rojo-institucional-oscuro);
+            --danger: #9f2317;
+            --border: #d9d6c9;
+        }
+        #sidebar { background-color: var(--azul-institucional-oscuro); border-right-color: var(--azul-institucional); }
+        .nav-btn.active { background: var(--rojo-institucional); color: #fff; }
+        .nav-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
+        .sidebar-role select { background: #173c63; border-color: #6383a3; color: #fff; }
+        .student-avatar { background: var(--azul-institucional); }
+        .student-detail-strip, .modal-student-header { background: var(--azul-institucional); }
+        .student-avatar-lg { backdrop-filter: none; }
+        .workflow-step.completed { background: #e9eddf; color: var(--verde-institucional); }
+        .workflow-step.current { background: #e5edf5; color: var(--azul-institucional-oscuro); }
+        .section-block { background: #fbfaf7; border-color: var(--border); }
+        .info-tag-container { background: #eef3f8; color: var(--azul-institucional-oscuro); border-left-color: var(--azul-institucional); }
+        .report-item:hover { background-color: #f5f3e8; }
+        .report-item.active { background-color: #fbece9; }
+        .students-table-header { background: #f3f2ed; border-color: var(--border); }
+        .tab-btn.active, .btn-primary, .btn-ver-detalle:hover { background: var(--rojo-institucional); color: #fff; }
+        .btn-primary:hover, .btn-brand:hover { background: var(--rojo-institucional-oscuro); }
+        .btn-success { background: var(--verde-institucional); }
+        .btn-success:hover { background: #2b3b25; }
+        .btn-secondary { background: #eef1f4; color: #20231e; }
+        .btn-secondary:hover { background: #dde4e9; }
+        .btn-pdf { background: var(--azul-institucional-oscuro); }
+        .link-btn, .back-btn:hover { color: var(--azul-institucional); }
+        .sidebar-role label { color: #e3e9ee; }
+        .sidebar-footer { color: #c8d3dc; }
+        .sidebar-footer strong { color: #fff; }
+        .header-title p { color: #fff3c1; }
+
+        .sev-count.leve-c { color: #796b16; }
+        .sev-count.grave-c, .sev-count.mg-c { color: var(--rojo-institucional-oscuro); }
+        .sev-count.total-c { color: var(--azul-institucional); }
+        .report-history-item.leve { border-left-color: var(--dorado-oscuro); background: #fffdf0; }
+        .report-history-item.grave, .report-history-item.muy_grave { border-left-color: var(--rojo-institucional); background: #fff7f5; }
+        .report-history-item.consejo_aula, .report-history-item.consejo { border-left-color: var(--azul-institucional); }
+        .report-history-item.suspenso { border-left-color: #a9a595; }
+        .badge-leve, .badge-pendiente { background: #f7f1c9; color: #50491f; }
+        .badge-grave, .badge-anulado { background: #fbe7e3; color: #812217; }
+        .badge-muygrave { background: #fbe7e3; color: #812217; }
+        .badge-resuelto { background: #e9eddf; color: var(--verde-institucional); }
+        .badge-suspenso { background: #eef1f4; color: #38424a; }
+        textarea { resize: none; overflow-y: auto; overflow-x: hidden; max-width: 100%; min-height: 5.5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .modal-content { background: #fff; color: var(--text-dark); border-radius: 12px; box-shadow: 0 20px 60px rgb(0 0 0 / .3); max-width: 700px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; }
+        #modal-recuperar .modal-content { max-width: 420px; }
+        .modal-content .modal-header, .modal-content .modal-body, .modal-content .modal-footer { background: #fff; color: var(--text-dark); }
+        .header-emblem img, .login-logo, .sidebar-footer img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
+        .login-logo { width: 84px; height: 112px; }
+        .header-emblem { width: 38px; height: 38px; padding: 3px; }
+        .sidebar-footer .sidebar-logo { display: block; width: 40px; height: auto; max-height: 56px; object-fit: contain; margin: 0 0 8px; }
+        @media (max-width: 640px) {
+            .app-section { padding: 16px 12px; }
+            .form-row[style*="repeat(4,1fr)"] { grid-template-columns: 1fr 1fr !important; }
+            .modal-content { max-height: calc(100dvh - 24px); }
+            .modal-body { padding: 16px; }
+            .workflow-step { font-size: .65rem; padding: 6px 3px; }
+            .students-table-header { display: none; }
+            .student-card { grid-template-columns: 1fr auto; gap: 8px; padding: 12px; }
+        }
+
+        /* ══════════ AGREGADOS v4: API real, administración y formularios dinámicos ══════════ */
+        .hidden { display: none !important; }
+        #auth-loading { display: flex; }
+        #auth-loading.hidden { display: none !important; }
+        .auth-loading-box { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .spinner { width: 26px; height: 26px; border: 2px solid #dedbd2; border-top-color: var(--rojo-institucional); border-radius: 50%; animation: auth-loading-spin .8s linear infinite; }
+        .sidebar-user-box { display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px; border-bottom: 1px solid #1e293b; }
+        .sidebar-avatar { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .78rem; font-weight: 800; flex-shrink: 0; }
+        .sidebar-user-name { color: #f8fafc; font-size: .82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-user-role { color: #94a3b8; font-size: .67rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .muted { color: var(--text-muted); }
+        .small { font-size: .8rem; }
+        .inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+        .header-user-chip {
+            display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255,255,255,.28); color: #fff; border-radius: 20px;
+            padding: 4px 11px; font-size: .78rem; font-weight: 600; max-width: 340px;
+        }
+        .header-user-chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .header-user-chip .role-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dorado); flex-shrink: 0; }
+        .login-version { margin-top: 14px; font-size: .68rem; color: #94a3b8; line-height: 1.6; }
+        .nav-count { margin-left: auto; background: var(--dorado); color: #3b360f; border-radius: 10px; font-size: .66rem; padding: 0 6px; font-weight: 800; }
+        .nav-divider { height: 1px; background: rgba(255,255,255,.12); margin: 8px 10px; }
+        .nav-section-label { color: #8fa1b5; font-size: .64rem; letter-spacing: .09em; text-transform: uppercase; padding: 7px 12px 3px; font-weight: 700; }
+        .kpi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+        .kpi-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 13px 15px; box-shadow: var(--shadow); }
+        .kpi-card .kpi-label { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #7a7b72; }
+        .kpi-card .kpi-value { font-size: 1.7rem; font-weight: 800; line-height: 1.25; color: var(--azul-institucional-oscuro); font-variant-numeric: tabular-nums; }
+        .kpi-card.kpi-pending .kpi-value { color: #7a6a12; }
+        .kpi-card.kpi-resolved .kpi-value { color: var(--verde-institucional); }
+        .kpi-card.kpi-annulled .kpi-value { color: var(--rojo-institucional-oscuro); }
+        .report-row { background: #fff; border: 1px solid #e5e3da; border-radius: 8px; padding: 13px 16px; margin-bottom: 9px; box-shadow: 0 1px 2px rgb(0 0 0 / .03); }
+        .report-row-main { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+        .report-row h4 { font-size: .94rem; color: var(--text-dark); margin-bottom: 2px; }
+        .report-row .report-meta { font-size: .76rem; color: var(--text-muted); }
+        .report-row .report-reason { font-size: .82rem; color: #40423b; margin-top: 6px; }
+        .report-row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 9px; }
+        .status-badge { font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; display: inline-block; }
+        .status-pendiente { background: #f7f1c9; color: #50491f; }
+        .status-resuelto { background: #e9eddf; color: var(--verde-institucional); }
+        .status-anulado { background: #fbe7e3; color: #812217; }
+        .stage-badge { font-size: .66rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #eef3f8; color: var(--azul-institucional-oscuro); display: inline-block; }
+        .student-table-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+        .btn-xs { padding: 4px 9px; font-size: .72rem; border-radius: 5px; }
+        .btn-outline { background: #fff; color: #344054; border: 1px solid #cbd5e1; }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-warning { background: #a16207; color: #fff; }
+        .btn-warning:hover { background: #854d0e; }
+        .admin-tabs { margin-bottom: 16px; }
+        .admin-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; box-shadow: var(--shadow); }
+        .admin-table { width: 100%; border-collapse: collapse; min-width: 720px; font-size: .82rem; }
+        .admin-table th { background: #f3f2ed; color: #5b5b52; text-align: left; font-size: .67rem; letter-spacing: .06em; text-transform: uppercase; padding: 9px 11px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .admin-table td { padding: 9px 11px; border-bottom: 1px solid #eeece4; vertical-align: top; color: #2b2d27; }
+        .admin-table tr:last-child td { border-bottom: none; }
+        .admin-table tr:hover td { background: #fbfaf6; }
+        .admin-toolbar { display: flex; gap: 9px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 13px; }
+        .admin-toolbar .toolbar-field { min-width: 145px; }
+        .admin-toolbar input, .admin-toolbar select { padding: 7px 8px; font-size: .82rem; }
+        .admin-panel-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 13px; }
+        .admin-panel-title h3 { font-size: 1.02rem; color: var(--azul-institucional-oscuro); }
+        .form-section-title { font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #7a7b72; margin: 18px 0 8px; border-bottom: 1px solid #e5e3da; padding-bottom: 4px; }
+        .form-section-title:first-child { margin-top: 0; }
+        .field-readonly { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 9px 11px; font-size: .88rem; color: #334155; line-height: 1.55; min-height: 38px; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .field-readonly.empty { color: #94a3b8; font-style: italic; }
+        .form-help { font-size: .72rem; color: #7a7b72; margin-top: 3px; line-height: 1.45; }
+        .form-warning { background: #fffbeb; border: 1px solid var(--accent); color: #5c5220; border-radius: 6px; padding: 9px 11px; font-size: .8rem; margin-bottom: 13px; }
+        .form-error { background: #fdecea; color: var(--danger); border: 1px solid #f5b7b1; border-radius: 6px; padding: 8px 11px; font-size: .8rem; margin-bottom: 12px; }
+        .form-success { background: #e9eddf; color: var(--verde-institucional); border: 1px solid #c8d4b7; border-radius: 6px; padding: 8px 11px; font-size: .8rem; margin-bottom: 12px; }
+        .assignment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; background: #fff; }
+        .assignment-option { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 500; color: #334155; margin: 0; padding: 2px 0; }
+        .checkbox-line { display: flex; align-items: center; gap: 7px; font-size: .84rem; font-weight: 600; color: #334155; }
+        .import-preview { max-height: 240px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 6px; margin-top: 10px; }
+        .import-preview table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+        .import-preview th, .import-preview td { padding: 6px 8px; border-bottom: 1px solid #eeece4; text-align: left; }
+        .import-preview th { background: #f8fafc; }
+        .error-list { margin: 8px 0 0; padding-left: 18px; color: #991b1b; font-size: .78rem; }
+        .notification-item { border: 1px solid #e2e8f0; border-left: 3px solid var(--azul-institucional); border-radius: 6px; padding: 10px 13px; margin-bottom: 8px; background: #fff; }
+        .notification-item .notif-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: .75rem; color: #64748b; }
+        .notification-item strong { font-size: .86rem; color: #1e293b; }
+        .notification-item p { font-size: .82rem; color: #475569; margin-top: 3px; }
+        .account-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .account-field { background: #f8fafc; border: 1px solid #e8edf3; border-radius: 7px; padding: 10px 13px; }
+        .account-field .field-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 2px; }
+        .account-field .field-val { font-size: .88rem; font-weight: 600; color: #1e293b; overflow-wrap: anywhere; }
+        .modal-note { background: #eef3f8; border-left: 3px solid var(--azul-institucional); color: #243b55; font-size: .8rem; padding: 8px 11px; border-radius: 0 6px 6px 0; margin-bottom: 13px; }
+        .file-drop { border: 1.5px dashed #b9c3cf; border-radius: 8px; padding: 18px; text-align: center; background: #f8fafc; color: #475569; font-size: .83rem; }
+        .file-drop input { margin-top: 8px; }
+        .audit-detail { font-family: ui-monospace, Consolas, monospace; font-size: .72rem; color: #475569; max-width: 340px; overflow-wrap: anywhere; }
+        .badge-role { font-size: .66rem; background: #eef3f8; color: var(--azul-institucional-oscuro); border-radius: 10px; padding: 2px 7px; font-weight: 700; }
+        .empty-inline { color: #7a7b72; font-size: .82rem; padding: 10px 0; }
+        .workflow-indicator.compact { margin-bottom: 14px; }
+        .modal-footer .btn { font-size: .82rem; }
+        .signature-block { border-color: #cbd5e1; background: #f8fafc; }
+        .signature-pad-shell { background: #fff; border: 1.5px dashed #94a3b8; border-radius: 8px; padding: 6px; }
+        .signature-pad { display: block; width: 100%; height: 170px; background: #fff; border-radius: 4px; cursor: crosshair; touch-action: none; }
+        .signature-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+        .signature-status { font-size: .72rem; color: #64748b; }
+        .signature-status.signed { color: var(--verde-institucional); font-weight: 700; }
+        .signature-preview { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+        .signature-preview img { display: block; max-width: 100%; max-height: 130px; margin: 0 auto; }
+        @media (max-width: 700px) {
+            .report-row-main { flex-direction: column; gap: 6px; }
+            .admin-toolbar .toolbar-field { min-width: 130px; flex: 1 1 130px; }
+            .header-user-chip { display: none; }
+            .modal-meta-grid, .alumno-ficha, .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="logged-out">
+<div id="auth-loading" class="auth-loading">
+    <div class="auth-loading-box">
+        <div class="spinner" id="auth-loading-spinner"></div>
+        <p>Verificando sesión…</p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     LOGIN — las cuentas son creadas únicamente por el administrador.
+     ══════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+    <div class="login-box">
+        <img src="./escudo.png" class="login-logo" alt="Escudo de la Escuela Técnica N° 35 D.E. 18" />
+        <h1>Escuela Técnica N° 35 D.E. 18</h1>
+        <p class="login-subtitle">Ing. Eduardo Latzina · Sistema de Informes de Convivencia</p>
+
+        <div class="login-demo-notice" id="login-demo-notice">
+            Acceso restringido de uso interno. Las cuentas son creadas por el administrador del sistema.
+            No comparta sus credenciales.
+        </div>
+
+        <form id="loginForm" novalidate>
+            <label for="login-email">Mail institucional</label>
+            <input type="email" id="login-email" required placeholder="usuario@et35.com.ar" autocomplete="username">
+            <label for="login-password" style="margin-top:10px;">Contraseña</label>
+            <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+            <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+                <button type="button" class="link-btn" id="btn-forgot-password">¿Olvidó su contraseña?</button>
+            </div>
+            <div id="login-error" class="login-error" style="display:none;" role="alert"></div>
+            <button type="submit" class="btn btn-brand" style="width:100%; margin-top:16px; padding:11px;" id="loginSubmitBtn">Ingresar</button>
+        </form>
+        <p class="login-version">
+            Sistema conectado a una base de datos institucional.<br>
+            Escuela Técnica N° 35 D.E. 18 · Uso interno
+        </p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ENCABEZADO
+     ══════════════════════════════════════════════════════════════ -->
+<header>
+    <div class="header-title">
+        <button type="button" class="mobile-menu-btn" id="btn-mobile-menu" aria-label="Abrir menú">☰</button>
+        <div class="header-emblem"><img src="./escudo.png" alt="Escudo ET N° 35"></div>
+        <div>
+            <div style="font-size:0.92rem; font-weight:700; line-height:1.2;">Informes de Convivencia</div>
+            <div style="font-size:0.68rem; opacity:0.75; line-height:1.2;">E.T. N° 35 D.E. 18 · Ing. Eduardo Latzina</div>
+        </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:9px;">
+        <div id="badge-demo" class="hidden" style="background:var(--dorado); color:#3b360f; font-size:0.66rem; font-weight:800; padding:3px 8px; border-radius:9px; letter-spacing:0.5px;">DEMO</div>
+        <div id="header-user-chip" class="header-user-chip hidden">
+            <span class="role-dot"></span>
+            <span id="header-user-name">—</span>
+        </div>
+    </div>
+</header>
+
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     BARRA LATERAL
+     ══════════════════════════════════════════════════════════════ -->
+<aside id="sidebar">
+    <div class="sidebar-user-box" id="sidebar-user">
+        <div class="sidebar-avatar" id="sidebar-avatar">—</div>
+        <div style="min-width:0;">
+            <div class="sidebar-user-name" id="sidebar-user-name">—</div>
+            <div class="sidebar-user-role" id="sidebar-user-role">—</div>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Navegación principal">
+        <div class="nav-section-label">Gestión escolar</div>
+        <button type="button" class="nav-btn active" data-section="informes" id="nav-informes">
+            <span class="nav-icon">▤</span> Informes
+        </button>
+        <button type="button" class="nav-btn" data-section="alumnos" id="nav-alumnos">
+            <span class="nav-icon">◉</span> Alumnos
+        </button>
+        <button type="button" class="nav-btn" data-section="notificaciones" id="nav-notificaciones">
+            <span class="nav-icon">◔</span> Notificaciones
+            <span id="nav-notif-count" class="nav-count hidden">0</span>
+        </button>
+
+        <div class="nav-divider"></div>
+        <div class="nav-section-label">Sistema</div>
+        <button type="button" class="nav-btn" data-section="admin" id="nav-admin">
+            <span class="nav-icon">⚙</span> Administración
+        </button>
+        <button type="button" class="nav-btn" data-section="ajustes" id="nav-ajustes">
+            <span class="nav-icon">◎</span> Mi cuenta
+        </button>
+    </nav>
+
+    <div class="sidebar-role">
+        <div style="font-size:0.66rem; color:#64748b; line-height:1.5; margin-bottom:8px;">
+            <strong style="color:#94a3b8;">Sesión protegida</strong><br>
+            Permisos verificados en el servidor.
+        </div>
+        <button type="button" class="btn btn-danger btn-sm" id="btn-logout" style="width:100%; justify-content:center;">Cerrar sesión</button>
+    </div>
+    <div class="sidebar-footer">
+        <strong>Escuela Técnica N° 35 D.E. 18</strong>
+        Sistema de Informes de Convivencia<br>
+        <span style="font-size:0.62rem;">v4 · Base de datos PostgreSQL</span>
+    </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════════════════
+     CONTENIDO PRINCIPAL
+     ══════════════════════════════════════════════════════════════ -->
+<div id="app-body">
+
+    <!-- ── INFORMES ── -->
+    <section id="section-informes" class="app-section visible">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+            <div>
+                <h2 class="page-title">Informes de convivencia</h2>
+                <p class="page-subtitle" id="informes-subtitle">Registro institucional de situaciones escolares.</p>
+            </div>
+            <button type="button" class="btn btn-brand hidden" id="btn-nuevo-informe" style="margin-top:4px;">＋ Nuevo informe</button>
+        </div>
+
+        <div id="informes-kpi-overview"></div>
+
+        <div class="tabs-row" id="informes-tabs">
+            <button type="button" class="tab-btn active" data-tab="todos">Todos <span class="tab-count" id="tab-count-todos">0</span></button>
+            <button type="button" class="tab-btn" data-tab="Pendiente">Pendientes <span class="tab-count" id="tab-count-pendiente">0</span></button>
+            <button type="button" class="tab-btn" data-tab="Resuelto">Resueltos <span class="tab-count" id="tab-count-resuelto">0</span></button>
+            <button type="button" class="tab-btn" data-tab="Anulado">Anulados <span class="tab-count" id="tab-count-anulado">0</span></button>
+        </div>
+
+        <div class="filters-bar">
+            <div class="filters-grid">
+                <div class="search-box">
+                    <input type="text" id="filtro-busqueda" placeholder="Buscar alumno, DNI, motivo…" autocomplete="off">
+                </div>
+                <select id="filtro-gravedad" aria-label="Filtrar por gravedad">
+                    <option value="">Todas las gravedades</option>
+                    <option value="LEVE">Leve</option>
+                    <option value="GRAVE">Grave</option>
+                    <option value="MUY GRAVE">Muy grave</option>
+                    <option value="SUSPENSO">Suspenso</option>
+                </select>
+                <select id="filtro-curso" aria-label="Filtrar por curso">
+                    <option value="">Todos los cursos</option>
+                </select>
+                <select id="filtro-etapa" aria-label="Filtrar por etapa">
+                    <option value="">Todas las etapas</option>
+                    <option value="descargo">Descargo</option>
+                    <option value="consejos">Consejos</option>
+                    <option value="dictamen">Dictamen</option>
+                    <option value="notificado">Notificado</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="informes-list"></div>
+        <div id="informes-empty" class="empty-state hidden">
+            <div style="font-size:2rem;">▤</div>
+            <p>No hay informes que coincidan con los filtros.</p>
+        </div>
+    </section>
+
+    <!-- ── ALUMNOS ── -->
+    <section id="section-alumnos" class="app-section">
+        <div id="view-alumnos-lista">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+                <div>
+                    <h2 class="page-title">Alumnos</h2>
+                    <p class="page-subtitle">Legajos visibles según su rol y ámbito asignado.</p>
+                </div>
+                <button type="button" class="btn btn-primary hidden" id="btn-gestion-alumnos" style="margin-top:4px;">Gestionar alumnos</button>
+            </div>
+
+            <div class="filters-bar">
+                <div class="filters-grid">
+                    <div class="search-box">
+                        <input type="text" id="filtro-alumno-busqueda" placeholder="Buscar por nombre, apellido o DNI…" autocomplete="off">
+                    </div>
+                    <select id="filtro-alumno-curso" aria-label="Filtrar alumnos por curso">
+                        <option value="">Todos los cursos</option>
+                    </select>
+                    <select id="filtro-alumno-orden" aria-label="Ordenar alumnos">
+                        <option value="apellido">Apellido (A–Z)</option>
+                        <option value="curso">Curso y división</option>
+                        <option value="informes">Más informes</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="alumnos-grid" class="students-grid"></div>
+            <div id="alumnos-empty" class="empty-state hidden">
+                <div style="font-size:2rem;">◉</div>
+                <p>No hay alumnos que coincidan con la búsqueda.</p>
+            </div>
+        </div>
+
+        <div id="view-alumno-detalle" class="hidden">
+            <button type="button" class="back-btn" id="btn-volver-alumnos">← Volver a alumnos</button>
+            <div id="alumno-detalle-content"></div>
+        </div>
+    </section>
+
+    <!-- ── NOTIFICACIONES ── -->
+    <section id="section-notificaciones" class="app-section">
+        <h2 class="page-title">Notificaciones</h2>
+        <p class="page-subtitle">Registro de avisos generados por el sistema. No se envían correos automáticos.</p>
+        <div id="notificaciones-list"></div>
+        <div id="notificaciones-empty" class="empty-state hidden">
+            <div style="font-size:2rem;">◔</div>
+            <p>No hay notificaciones registradas.</p>
+        </div>
+    </section>
+
+    <!-- ── ADMINISTRACIÓN ── -->
+    <section id="section-admin" class="app-section">
+        <h2 class="page-title">Administración</h2>
+        <p class="page-subtitle">Gestión de cuentas, alumnos, cursos, configuración y auditoría.</p>
+
+        <div class="tabs-row admin-tabs" id="admin-tabs">
+            <button type="button" class="tab-btn" data-admin-tab="usuarios">Usuarios y roles</button>
+            <button type="button" class="tab-btn" data-admin-tab="alumnos">Alumnos</button>
+            <button type="button" class="tab-btn" data-admin-tab="cursos">Cursos</button>
+            <button type="button" class="tab-btn" data-admin-tab="configuracion">Configuración</button>
+            <button type="button" class="tab-btn" data-admin-tab="auditoria">Auditoría</button>
+        </div>
+
+        <!-- Usuarios -->
+        <div id="admin-panel-usuarios" class="admin-panel">
+            <div class="admin-panel-title">
+                <div>
+                    <h3>Cuentas de usuario</h3>
+                    <p class="muted small">Las cuentas se crean aquí. No existe registro público.</p>
+                </div>
+                <button type="button" class="btn btn-brand btn-sm" id="btn-nuevo-usuario">＋ Nueva cuenta</button>
+            </div>
+            <div class="admin-toolbar">
+                <div class="toolbar-field search-box" style="flex:1 1 220px;">
+                    <input type="text" id="admin-user-search" placeholder="Buscar por nombre, mail o rol…" autocomplete="off">
+                </div>
+                <select id="admin-user-role-filter" class="toolbar-field" aria-label="Filtrar usuarios por rol">
+                    <option value="">Todos los roles</option>
+                </select>
+                <select id="admin-user-status-filter" class="toolbar-field" aria-label="Filtrar usuarios por estado">
+                    <option value="">Todas las cuentas</option>
+                    <option value="active">Activas</option>
+                    <option value="inactive">Inactivas</option>
+                </select>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Cuenta</th>
+                            <th>Rol</th>
+                            <th>Ámbito / vínculos</th>
+                            <th>Estado</th>
+                            <th style="text-align:right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-tbody"></tbody>
+                </table>
+            </div>
+            <div id="admin-users-empty" class="empty-inline hidden">No hay cuentas que coincidan.</div>
+        </div>
+
+        <!-- Alumnos admin -->
+        <div id="admin-panel-alumnos" class="admin-panel hidden">
+            <div class="admin-panel-title">
+                <div>
+                    <h3>Legajos de alumnos</h3>
+                    <p class="muted small">Alta, edición, baja lógica y eliminación definitiva segura.</p>
+                </div>
+                <div class="inline-flex" style="flex-wrap:wrap;">
+                    <button type="button" class="btn btn-outline btn-sm" id="btn-importar-alumnos">Importar CSV</button>
+                    <button type="button" class="btn btn-brand btn-sm" id="btn-nuevo-alumno">＋ Nuevo alumno</button>
+                </div>
+            </div>
+            <div class="admin-toolbar">
+                <div class="toolbar-field search-box" style="flex:1 1 220px;">
+                    <input type="text" id="admin-student-search" placeholder="Buscar por nombre, apellido o DNI…" autocomplete="off">
+                </div>
+                <select id="admin-student-course" class="toolbar-field" aria-label="Filtrar por curso">
+                    <option value="">Todos los cursos</option>
+                </select>
+                <select id="admin-student-division" class="toolbar-field" aria-label="Filtrar por división">
+                    <option value="">Todas las divisiones</option>
+                </select>
+                <label class="checkbox-line" style="padding-bottom:7px; white-space:nowrap;">
+                    <input type="checkbox" id="admin-student-inactive"> Incluir inactivos
+                </label>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Alumno</th>
+                            <th>DNI</th>
+                            <th>Legajo</th>
+                            <th>Curso</th>
+                            <th>Contacto</th>
+                            <th>Informes</th>
+                            <th>Estado</th>
+                            <th style="text-align:right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-students-tbody"></tbody>
+                </table>
+            </div>
+            <div id="admin-students-empty" class="empty-inline hidden">No hay alumnos que coincidan.</div>
+        </div>
+
+        <!-- Cursos admin -->
+        <div id="admin-panel-cursos" class="admin-panel hidden">
+            <div class="admin-panel-title">
+                <div>
+                    <h3>Cursos y divisiones</h3>
+                    <p class="muted small">Los cursos se desactivan; no se eliminan si tienen alumnos o informes.</p>
+                </div>
+                <button type="button" class="btn btn-brand btn-sm" id="btn-nuevo-curso">＋ Nuevo curso</button>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th>Año</th>
+                            <th>División</th>
+                            <th>Especialidad</th>
+                            <th>Turno</th>
+                            <th>Alumnos</th>
+                            <th>Estado</th>
+                            <th style="text-align:right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-courses-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Configuración -->
+        <div id="admin-panel-configuracion" class="admin-panel hidden">
+            <div class="card" style="max-width:720px;">
+                <div class="card-title">Parámetros institucionales</div>
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label for="setting-school-name">Nombre de la institución</label>
+                        <input type="text" id="setting-school-name" maxlength="120" required>
+                        <p class="form-help">Se muestra en la aplicación y en los informes exportados.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="setting-statement-days">Días hábiles para presentar el descargo</label>
+                        <input type="number" id="setting-statement-days" min="1" max="30" required>
+                        <p class="form-help">Plazo informativo utilizado por el servidor para habilitar el descargo del alumno.</p>
+                    </div>
+                    <div id="settings-message"></div>
+                    <button type="submit" class="btn btn-primary">Guardar configuración</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Auditoría -->
+        <div id="admin-panel-auditoria" class="admin-panel hidden">
+            <div class="admin-panel-title">
+                <div>
+                    <h3>Auditoría de acciones</h3>
+                    <p class="muted small">Registro de accesos y cambios. Los datos sensibles no se muestran completos.</p>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-audit">Actualizar</button>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Actor</th>
+                            <th>Acción</th>
+                            <th>Entidad</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-audit-tbody"></tbody>
+                </table>
+            </div>
+            <div id="admin-audit-empty" class="empty-inline hidden">Sin registros de auditoría.</div>
+        </div>
+    </section>
+
+    <!-- ── MI CUENTA ── -->
+    <section id="section-ajustes" class="app-section">
+        <h2 class="page-title">Mi cuenta</h2>
+        <p class="page-subtitle">Datos de la sesión actual. Los permisos no pueden modificarse desde el navegador.</p>
+        <div class="card" style="max-width:820px;">
+            <div class="card-title">Perfil</div>
+            <div class="account-grid" id="account-profile"></div>
+        </div>
+        <div class="card" style="max-width:820px;">
+            <div class="card-title">Seguridad</div>
+            <p class="small muted" style="margin-bottom:12px;">Cambie su contraseña periódicamente. Si es su primer ingreso, el sistema le pedirá hacerlo.</p>
+            <button type="button" class="btn btn-primary" id="btn-open-password">Cambiar contraseña</button>
+            <button type="button" class="btn btn-secondary" id="btn-logout-account">Cerrar sesión</button>
+        </div>
+        <div class="card" style="max-width:820px;">
+            <div class="card-title">Privacidad y uso</div>
+            <p class="small" style="color:#475569; line-height:1.7;">
+                Este sistema contiene datos personales de menores de edad. Acceda únicamente desde equipos
+                institucionales autorizados, no comparta capturas ni credenciales, y cierre la sesión al terminar.
+                La información se almacena en la base de datos central del servidor; no se guarda en este navegador.
+            </p>
+        </div>
+    </section>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODALES
+     ══════════════════════════════════════════════════════════════ -->
+
+<!-- Formulario de informe / descargo -->
+<div class="modal-overlay" id="modal-informe" role="dialog" aria-modal="true" aria-labelledby="modal-informe-title">
+    <div class="modal-box" style="max-width:860px;">
+        <div class="modal-header">
+            <div>
+                <h3 id="modal-informe-title">Informe de convivencia</h3>
+                <p id="modal-informe-subtitle" class="muted small" style="margin-top:2px;"></p>
+            </div>
+            <button type="button" class="btn-close" data-close-modal="modal-informe" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="modal-role-hint" class="info-tag-container hidden"></div>
+            <div id="modal-form-warning" class="form-warning hidden"></div>
+            <div id="modal-workflow" class="workflow-indicator compact">
+                <div class="workflow-step" data-stage="descargo">1. Descargo</div>
+                <div class="workflow-step" data-stage="consejos">2. Consejos</div>
+                <div class="workflow-step" data-stage="dictamen">3. Dictamen</div>
+                <div class="workflow-step" data-stage="notificado">4. Notificado</div>
+            </div>
+            <form id="convivenciaForm" novalidate>
+                <input type="hidden" id="edit-report-id" value="">
+                <div id="form-sections"></div>
+                <div id="form-message"></div>
+                <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-outline" id="btn-form-reset">Restablecer</button>
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-informe">Cancelar</button>
+                    <button type="submit" class="btn btn-brand" id="submitBtn">Guardar informe</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Detalle de informe -->
+<div class="modal-overlay" id="modal-detalle" role="dialog" aria-modal="true" aria-labelledby="modal-detalle-title">
+    <div class="modal-box" style="max-width:780px;">
+        <div class="modal-header">
+            <h3 id="modal-detalle-title">Detalle del informe</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-detalle" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body" id="detalle-content"></div>
+        <div class="modal-footer" id="detalle-footer"></div>
+    </div>
+</div>
+
+<!-- Historial de alumno -->
+<div class="modal-overlay" id="modal-historial" role="dialog" aria-modal="true" aria-labelledby="modal-historial-title">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="modal-historial-title">Historial de convivencia</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-historial" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body" id="historial-content"></div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-pdf" id="btn-history-pdf">Descargar legajo PDF</button>
+            <button type="button" class="btn btn-secondary" data-close-modal="modal-historial">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Cambio de contraseña -->
+<div class="modal-overlay" id="modal-password" role="dialog" aria-modal="true" aria-labelledby="modal-password-title">
+    <div class="modal-box" style="max-width:470px;">
+        <div class="modal-header">
+            <h3 id="modal-password-title">Cambiar contraseña</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-password" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="password-forced-note" class="form-warning hidden">
+                Por seguridad, debe cambiar la contraseña temporal antes de continuar.
+            </div>
+            <form id="changePasswordForm" novalidate>
+                <div class="form-group">
+                    <label for="pwd-current">Contraseña actual</label>
+                    <input type="password" id="pwd-current" autocomplete="current-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="pwd-new">Nueva contraseña</label>
+                    <input type="password" id="pwd-new" autocomplete="new-password" minlength="10" required>
+                    <p class="form-help">Mínimo 10 caracteres, con al menos una letra, un número y un símbolo.</p>
+                </div>
+                <div class="form-group">
+                    <label for="pwd-confirm">Repetir nueva contraseña</label>
+                    <input type="password" id="pwd-confirm" autocomplete="new-password" minlength="10" required>
+                </div>
+                <div id="password-message"></div>
+                <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-password">Cancelar</button>
+                    <button type="submit" class="btn btn-brand">Actualizar contraseña</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Alta / edición de alumno -->
+<div class="modal-overlay" id="modal-alumno" role="dialog" aria-modal="true" aria-labelledby="modal-alumno-title">
+    <div class="modal-box" style="max-width:660px;">
+        <div class="modal-header">
+            <h3 id="modal-alumno-title">Nuevo alumno</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-alumno" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="studentForm" novalidate>
+                <input type="hidden" id="alumno-id" value="">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="alumno-nombres">Nombres *</label>
+                        <input type="text" id="alumno-nombres" maxlength="80" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="alumno-apellidos">Apellidos *</label>
+                        <input type="text" id="alumno-apellidos" maxlength="80" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="alumno-dni">DNI *</label>
+                        <input type="text" id="alumno-dni" maxlength="12" inputmode="numeric" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="alumno-legajo">Legajo</label>
+                        <input type="text" id="alumno-legajo" maxlength="30">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="alumno-curso">Curso y división *</label>
+                        <select id="alumno-curso" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="alumno-nacimiento">Fecha de nacimiento</label>
+                        <input type="date" id="alumno-nacimiento">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="alumno-email">Correo de contacto</label>
+                        <input type="email" id="alumno-email" maxlength="120">
+                    </div>
+                    <div class="form-group">
+                        <label for="alumno-email-tutor">Correo del adulto responsable</label>
+                        <input type="email" id="alumno-email-tutor" maxlength="120">
+                    </div>
+                </div>
+                <div id="alumno-form-message"></div>
+                <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-alumno">Cancelar</button>
+                    <button type="submit" class="btn btn-brand">Guardar alumno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Alta / edición de usuario -->
+<div class="modal-overlay" id="modal-usuario" role="dialog" aria-modal="true" aria-labelledby="modal-usuario-title">
+    <div class="modal-box" style="max-width:720px;">
+        <div class="modal-header">
+            <h3 id="modal-usuario-title">Nueva cuenta</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-usuario" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="userForm" novalidate>
+                <input type="hidden" id="usuario-id" value="">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="usuario-nombre">Nombre completo *</label>
+                        <input type="text" id="usuario-nombre" maxlength="120" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="usuario-email">Mail institucional *</label>
+                        <input type="email" id="usuario-email" maxlength="160" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="usuario-rol">Rol *</label>
+                        <select id="usuario-rol" required></select>
+                        <p class="form-help" id="usuario-rol-help"></p>
+                    </div>
+                    <div class="form-group" id="usuario-password-group">
+                        <label for="usuario-password">Contraseña inicial *</label>
+                        <input type="password" id="usuario-password" autocomplete="new-password" minlength="10">
+                        <p class="form-help">Mínimo 10 caracteres, con al menos una letra, un número y un símbolo. El usuario deberá cambiarla.</p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-line">
+                        <input type="checkbox" id="usuario-scope-all"> Ámbito global (todos los cursos)
+                    </label>
+                    <p class="form-help">Sólo aplicable a roles directivos o de supervisión. Nunca amplía permisos pedagógicos.</p>
+                </div>
+                <div class="form-group" id="usuario-cursos-group">
+                    <label>Cursos / divisiones asignados</label>
+                    <div id="usuario-cursos" class="assignment-grid"></div>
+                </div>
+                <div class="form-group hidden" id="usuario-alumno-group">
+                    <label for="usuario-alumno">Legajo del alumno vinculado *</label>
+                    <select id="usuario-alumno"></select>
+                    <p class="form-help">Sólo se vincula una cuenta de alumno a un legajo existente.</p>
+                </div>
+                <div class="form-group hidden" id="usuario-tutores-group">
+                    <label>Alumnos a cargo *</label>
+                    <div id="usuario-tutores" class="assignment-grid"></div>
+                </div>
+                <div class="form-group" id="usuario-active-group">
+                    <label class="checkbox-line">
+                        <input type="checkbox" id="usuario-active" checked> Cuenta activa
+                    </label>
+                </div>
+                <div id="usuario-form-message"></div>
+                <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-usuario">Cancelar</button>
+                    <button type="submit" class="btn btn-brand">Guardar cuenta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Alta / edición de curso -->
+<div class="modal-overlay" id="modal-curso" role="dialog" aria-modal="true" aria-labelledby="modal-curso-title">
+    <div class="modal-box" style="max-width:520px;">
+        <div class="modal-header">
+            <h3 id="modal-curso-title">Nuevo curso</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-curso" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="courseForm" novalidate>
+                <input type="hidden" id="curso-id" value="">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="curso-anio">Año *</label>
+                        <input type="number" id="curso-anio" min="1" max="6" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="curso-division">División *</label>
+                        <input type="number" id="curso-division" min="1" max="12" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="curso-especialidad">Especialidad *</label>
+                    <input type="text" id="curso-especialidad" maxlength="80" required>
+                </div>
+                <div class="form-group">
+                    <label for="curso-turno">Turno *</label>
+                    <select id="curso-turno">
+                        <option>Mañana</option>
+                        <option>Tarde</option>
+                        <option>Noche</option>
+                    </select>
+                </div>
+                <div id="curso-form-message"></div>
+                <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-curso">Cancelar</button>
+                    <button type="submit" class="btn btn-brand">Guardar curso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Importación CSV -->
+<div class="modal-overlay" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="modal-import-title">
+    <div class="modal-box" style="max-width:820px;">
+        <div class="modal-header">
+            <h3 id="modal-import-title">Importar alumnos desde CSV</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-import" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-note">
+                Columnas requeridas: <strong>nombres, apellidos, dni, curso</strong>. Opcionales: legajo, email, email_tutor, nacimiento.
+                El curso debe coincidir con un curso activo (por ejemplo <em>2° 2° Electrónica</em>). El archivo se valida antes de guardar.
+            </div>
+            <div class="file-drop">
+                <div>Seleccione el archivo CSV (UTF-8, separado por comas)</div>
+                <input type="file" id="csv-file" accept=".csv,text/csv">
+            </div>
+            <div id="import-preview"></div>
+            <div id="import-message"></div>
+            <label class="checkbox-line" style="margin-top:10px;">
+                <input type="checkbox" id="import-allow-partial"> Importar las filas válidas aunque otras tengan errores
+            </label>
+            <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                <button type="button" class="btn btn-secondary" data-close-modal="modal-import">Cancelar</button>
+                <button type="button" class="btn btn-outline" id="btn-import-dryrun" disabled>Validar archivo</button>
+                <button type="button" class="btn btn-brand" id="btn-import-commit" disabled>Confirmar importación</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contraseña temporal de otro usuario (sólo administración) -->
+<div class="modal-overlay" id="modal-reset" role="dialog" aria-modal="true" aria-labelledby="modal-reset-title">
+    <div class="modal-box" style="max-width:450px;">
+        <div class="modal-header">
+            <h3 id="modal-reset-title">Asignar contraseña temporal</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-reset" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+            <p class="small muted" style="margin-bottom:12px;" id="reset-user-label"></p>
+            <form id="resetPasswordForm" novalidate>
+                <input type="hidden" id="reset-user-id" value="">
+                <div class="form-group">
+                    <label for="reset-password">Nueva contraseña temporal *</label>
+                    <input type="password" id="reset-password" autocomplete="new-password" minlength="10" required>
+                    <p class="form-help">Mínimo 10 caracteres, con al menos una letra, un número y un símbolo. Se cerrarán las sesiones del usuario.</p>
+                </div>
+                <div class="form-group">
+                    <label for="reset-password-confirm">Repetir contraseña *</label>
+                    <input type="password" id="reset-password-confirm" autocomplete="new-password" minlength="10" required>
+                </div>
+                <div id="reset-message"></div>
+                <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-reset">Cancelar</button>
+                    <button type="submit" class="btn btn-brand">Asignar contraseña</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/vendor/jspdf.umd.min.js" defer></script>
+<script src="/js/api.js" defer></script>
+<script src="/js/pdf.js" defer></script>
+<script src="/js/app.js" defer></script>
+</body>
+</html>

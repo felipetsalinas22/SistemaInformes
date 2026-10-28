@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: informes-convivencia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sistema_informes
+      POSTGRES_USER: informes
+      POSTGRES_PASSWORD: cambiar_esta_clave
+      TZ: America/Argentina/Buenos_Aires
+    ports:
+      - "5432:5432"
+    volumes:
+      - informes_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U informes -d sistema_informes"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  informes_pgdata:

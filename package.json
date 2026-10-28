@@ -1,0 +1,30 @@
+{
+  "name": "sistema-informes-convivencia",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Sistema de Informes de Convivencia - Escuela Técnica N° 35 D.E. 18 (backend Node/Express + PostgreSQL)",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "db:migrate": "node server/scripts/migrate.js",
+    "db:seed": "node server/scripts/seed.js",
+    "db:reset": "node server/scripts/seed.js --reset",
+    "user:create": "node server/scripts/create-admin.js",
+    "test": "node --test tests/",
+    "check": "node --check server/server.js && node --check js/app.js && node --check js/api.js && node --check js/pdf.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "jspdf": "2.5.1",
+    "pg": "^8.16.3",
+    "zod": "^4.1.12"
+  }
+}
