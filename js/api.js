@@ -130,7 +130,9 @@
     },
 
     notifications: {
-      list: (params) => get('/notifications', params)
+      list: (params) => get('/notifications', params),
+      markRead: (id) => post(`/notifications/${encodeURIComponent(id)}/read`, {}),
+      markAllRead: () => post('/notifications/read-all', {})
     },
 
     settings: {

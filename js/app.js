@@ -27,6 +27,8 @@
     users: [],
     auditEntries: [],
     notifications: [],
+    notificationsUnread: 0,
+    notificationTimer: null,
     reportTab: 'todos',
     adminTab: 'usuarios',
     selectedStudent: null,
@@ -78,7 +80,8 @@
 
   const COURSE_ROLES = ['PROFESOR', 'PRECEPTOR', 'PAT', 'DOE'];
   const GLOBAL_SCOPE_ROLES = ['RECTOR', 'VICERRECTOR', 'REGENTE', 'SUBREGENTE', 'JEFE_TALLER', 'SECRETARIA', 'ASESORIA'];
-  const CREATION_FIELDS = ['reason', 'description', 'issue_date'];
+  const CREATION_FIELDS = ['reason', 'severity', 'description', 'issue_date'];
+  const SEVERITY_OPTIONS = ['LEVE', 'GRAVE', 'MUY GRAVE'];
 
   const FIELD_LABELS = {
     reason: 'Motivo',
@@ -125,7 +128,9 @@
     LEVE: 'Leve',
     GRAVE: 'Grave',
     'MUY GRAVE': 'Muy grave',
-    SUSPENSO: 'Suspenso'
+    // Valor heredado: sólo se muestra en registros históricos. No se
+    // ofrece en creación, edición ni filtros nuevos.
+    SUSPENSO: 'Advertencia (histórico)'
   };
 
   const STAGE_LABELS = {
@@ -281,8 +286,50 @@
     $('#sidebar-overlay')?.classList.remove('open');
   }
 
+  function enhancePasswordToggles() {
+    const eye = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const eyeOff = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.2 3.9"/><path d="M6.6 6.7C3.6 8.6 2 12 2 12s3.6 6 10 6a10.8 10.8 0 0 0 4.1-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+    $$('input[type="password"]').forEach(input => {
+      if (input.dataset.passwordToggleReady === 'true') return;
+      input.dataset.passwordToggleReady = 'true';
+      const shell = document.createElement('div');
+      shell.className = 'password-field';
+      input.parentNode.insertBefore(shell, input);
+      shell.appendChild(input);
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'password-toggle';
+      button.innerHTML = eye;
+      button.setAttribute('aria-label', 'Mostrar contraseña');
+      button.setAttribute('aria-pressed', 'false');
+      button.title = 'Mostrar contraseña';
+      shell.appendChild(button);
+
+      button.addEventListener('click', () => {
+        const selectionStart = input.selectionStart;
+        const selectionEnd = input.selectionEnd;
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        button.innerHTML = show ? eyeOff : eye;
+        button.setAttribute('aria-pressed', show ? 'true' : 'false');
+        button.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        button.title = show ? 'Ocultar contraseña' : 'Mostrar contraseña';
+        input.focus({ preventScroll: true });
+        try {
+          if (selectionStart !== null && selectionEnd !== null) {
+            input.setSelectionRange(selectionStart, selectionEnd);
+          }
+        } catch (_) {
+          // Algunos navegadores no permiten seleccionar en campos de contraseña.
+        }
+      });
+    });
+  }
+
   // ── Sesión y arranque ───────────────────────────────────────────
   async function boot() {
+    enhancePasswordToggles();
     bindEvents();
 
     try {
@@ -334,6 +381,7 @@
       toast(errorMessage(error), 'error');
     }
     showSection('informes');
+    startNotificationPolling();
 
     if (state.me.mustChangePassword) {
       window.setTimeout(() => openPasswordModal(true), 120);
@@ -341,9 +389,12 @@
   }
 
   function showLogin(message) {
+    stopNotificationPolling();
     closeAllModals(true);
     state.me = null;
     state.permissions = {};
+    state.notifications = [];
+    state.notificationsUnread = 0;
     state.forcedPassword = false;
     api.setCsrf(null);
     document.body.classList.add('logged-out');
@@ -388,6 +439,7 @@
     $('#header-user-chip')?.classList.remove('hidden');
 
     $('#nav-admin')?.classList.toggle('hidden', !hasAdminAccess());
+    $('#nav-notificaciones')?.classList.toggle('hidden', !state.permissions.viewNotifications);
     $('#btn-nuevo-informe')?.classList.toggle('hidden', !state.permissions.createReports);
     $('#btn-gestion-alumnos')?.classList.toggle('hidden', !state.permissions.manageStudents);
 
@@ -421,6 +473,8 @@
     state.reports = results[2].reports || [];
     state.students = results[3].students || [];
     state.notifications = results[4].notifications || [];
+    state.notificationsUnread = Number(results[4].unreadCount) || 0;
+    updateNotificationBadge();
 
     populateCourseFilters();
     populateAdminRoleFilter();
@@ -431,12 +485,48 @@
   }
 
   async function refreshNotifications() {
+    if (!state.me) return;
     try {
       const result = await api.notifications.list({ limit: 200 });
       state.notifications = result.notifications || [];
+      state.notificationsUnread = Number(result.unreadCount) || 0;
       renderNotifications();
+      if (state.notificationsUnread && $('#section-notificaciones')?.classList.contains('visible')) {
+        void markNotificationsRead();
+      }
     } catch (_) {
       // No interrumpe la operación principal.
+    }
+  }
+
+  function startNotificationPolling() {
+    stopNotificationPolling();
+    state.notificationTimer = window.setInterval(() => {
+      if (state.me && document.visibilityState !== 'hidden') refreshNotifications();
+    }, 60000);
+  }
+
+  function stopNotificationPolling() {
+    if (state.notificationTimer) {
+      window.clearInterval(state.notificationTimer);
+      state.notificationTimer = null;
+    }
+  }
+
+  async function markNotificationsRead() {
+    if (!state.me || !state.notificationsUnread) return;
+    try {
+      await api.notifications.markAllRead();
+      const now = new Date().toISOString();
+      state.notifications = state.notifications.map(item => ({
+        ...item,
+        isRead: true,
+        readAt: item.readAt || now
+      }));
+      state.notificationsUnread = 0;
+      renderNotifications();
+    } catch (_) {
+      // Si falla la red, el contador permanece y se reintentará al reingresar.
     }
   }
 
@@ -490,6 +580,10 @@
     }
     if (section === 'ajustes') renderAccount();
     if (section === 'admin') showAdminTab(state.adminTab || 'usuarios');
+    if (section === 'notificaciones') {
+      renderNotifications();
+      void markNotificationsRead();
+    }
 
     closeSidebar();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -609,6 +703,7 @@
     });
 
     renderOverview(counts);
+    renderStageQueues();
     const reports = filteredReports();
     const list = $('#informes-list');
     const empty = $('#informes-empty');
@@ -617,6 +712,38 @@
     list.classList.toggle('hidden', reports.length === 0);
     empty?.classList.toggle('hidden', reports.length > 0);
     $('#btn-nuevo-informe')?.classList.toggle('hidden', !state.permissions.createReports);
+  }
+
+  function renderStageQueues() {
+    const container = $('#stage-queues');
+    if (!container) return;
+    const active = getReportFilters().stage;
+    const counts = { '': state.reports.length, descargo: 0, consejos: 0, dictamen: 0, notificado: 0 };
+    state.reports.forEach(report => {
+      if (report.stage in counts) counts[report.stage] += 1;
+    });
+    const items = [
+      { key: '', label: 'Todas' },
+      { key: 'descargo', label: 'Descargos' },
+      { key: 'consejos', label: 'Consejos / PAT' },
+      { key: 'dictamen', label: 'Dictamen' },
+      { key: 'notificado', label: 'Notificados' }
+    ];
+    container.innerHTML = `<span class="stage-queues-label">Bandejas por etapa</span>` + items.map(item => `
+      <button type="button" class="stage-queue ${active === item.key ? 'active' : ''}"
+        data-stage-queue="${item.key}" aria-pressed="${active === item.key ? 'true' : 'false'}">
+        <span>${esc(item.label)}</span><span class="stage-queue-count">${counts[item.key]}</span>
+      </button>`).join('');
+  }
+
+  function applyStageQueue(stage) {
+    const select = $('#filtro-etapa');
+    if (!select) return;
+    const next = stage || '';
+    select.value = select.value === next ? '' : next;
+    closeAllModals();
+    showSection('informes');
+    renderReports();
   }
 
   function renderOverview(counts) {
@@ -686,17 +813,23 @@
       </article>`;
   }
 
-  function renderWorkflow(workflow) {
+  function renderWorkflow(workflow, interactive = false) {
     const steps = Array.isArray(workflow) && workflow.length
       ? workflow
       : [
-        { label: 'Creación', state: 'completed' },
-        { label: 'Descargo', state: 'current' },
-        { label: 'Consejos', state: 'pending' },
-        { label: 'Dictamen', state: 'pending' },
-        { label: 'Notificado', state: 'pending' }
+        { key: 'creacion', label: 'Creación', state: 'completed' },
+        { key: 'descargo', label: 'Descargo', state: 'current' },
+        { key: 'consejos', label: 'Consejos', state: 'pending' },
+        { key: 'dictamen', label: 'Dictamen', state: 'pending' },
+        { key: 'notificado', label: 'Notificado', state: 'pending' }
       ];
-    return steps.map(step => `<div class="workflow-step ${esc(step.state)}">${esc(step.label)}</div>`).join('');
+    return steps.map(step => {
+      const classes = `workflow-step ${esc(step.state)}`;
+      if (!interactive) return `<div class="${classes}">${esc(step.label)}</div>`;
+      const stage = step.key === 'creacion' ? '' : (step.key || '');
+      return `<button type="button" class="${classes}" data-stage-queue="${esc(stage)}"
+        title="Ver informes en esta bandeja">${esc(step.label)}</button>`;
+    }).join('');
   }
 
   async function showReportDetail(id) {
@@ -808,7 +941,7 @@
         ${severityBadge(report.severity)}
       </div>
       ${annulled}
-      <div class="workflow-indicator compact" style="margin:4px 0 16px;">${renderWorkflow(report.workflow)}</div>
+      <div class="workflow-indicator compact" style="margin:4px 0 16px;">${renderWorkflow(report.workflow, true)}</div>
       <div class="modal-meta-grid">
         ${meta.map(([label, value]) => `<div class="modal-meta-cell"><div class="meta-label">${esc(label)}</div><div class="meta-val">${esc(value)}</div></div>`).join('')}
       </div>
@@ -918,17 +1051,138 @@
     }
   }
 
-  function studentOptionLabel(student) {
-    return `${student.name} · ${student.course} · DNI ${student.dni}`;
-  }
-
-  function buildStudentOptions(search = '') {
+  function studentSearchResults(search = '') {
     const term = norm(search);
     return state.students
-      .filter(student => !term || norm(`${student.name} ${student.dni} ${student.course}`).includes(term))
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
-      .map(student => `<option value="${student.id}">${esc(studentOptionLabel(student))}</option>`)
-      .join('');
+      .filter(student => !term || norm(`${student.name} ${student.dni} ${student.legajo || ''} ${student.course}`).includes(term))
+      .sort((a, b) => `${a.lastName || ''} ${a.firstName || ''} ${a.name}`.localeCompare(`${b.lastName || ''} ${b.firstName || ''} ${b.name}`, 'es'))
+      .slice(0, 60);
+  }
+
+  function studentResultHtml(student) {
+    const legajo = student.legajo ? ` · Legajo ${esc(student.legajo)}` : '';
+    return `<button type="button" class="student-result" role="option" aria-selected="false" data-student-id="${student.id}">
+      <span class="student-result-name">${esc(student.name)}</span>
+      <span class="student-result-meta">${esc(student.course)} · DNI ${esc(student.dni)}${legajo}</span>
+    </button>`;
+  }
+
+  function setupStudentPicker() {
+    const input = $('#form-student-search');
+    const hidden = $('#form-student-id');
+    const results = $('#form-student-results');
+    const selected = $('#form-student-selected');
+    const clear = $('#form-student-clear');
+    if (!input || !hidden || !results || !selected || !clear) return;
+
+    let activeIndex = -1;
+
+    const selectedStudent = () => {
+      const id = Number(hidden.value);
+      return id ? state.students.find(student => Number(student.id) === id) || null : null;
+    };
+
+    const renderResults = () => {
+      const matches = studentSearchResults(input.value);
+      results.innerHTML = matches.length
+        ? matches.map(studentResultHtml).join('')
+        : '<div class="student-result-empty">No hay alumnos que coincidan con la búsqueda.</div>';
+      activeIndex = -1;
+      input.setAttribute('aria-expanded', 'true');
+      results.classList.remove('hidden');
+    };
+
+    const closeResults = () => {
+      activeIndex = -1;
+      results.classList.add('hidden');
+      input.setAttribute('aria-expanded', 'false');
+    };
+
+    const paintSelection = student => {
+      hidden.value = String(student.id);
+      input.value = student.name;
+      selected.innerHTML = `
+        <span class="student-selected-avatar">${esc(initials(student.name))}</span>
+        <span class="student-selected-info">
+          <strong>${esc(student.name)}</strong>
+          <span>${esc(student.course)} · DNI ${esc(student.dni)}${student.legajo ? ` · Legajo ${esc(student.legajo)}` : ''}</span>
+        </span>
+        <span class="student-selected-check" aria-hidden="true">✓</span>`;
+      selected.classList.remove('hidden');
+      clear.classList.remove('hidden');
+      input.classList.add('has-selection');
+      closeResults();
+    };
+
+    const clearSelection = (clearText = true) => {
+      hidden.value = '';
+      selected.innerHTML = '';
+      selected.classList.add('hidden');
+      clear.classList.add('hidden');
+      input.classList.remove('has-selection');
+      if (clearText) input.value = '';
+    };
+
+    input.addEventListener('focus', renderResults);
+
+    input.addEventListener('input', () => {
+      const current = selectedStudent();
+      if (current && norm(input.value) !== norm(current.name)) clearSelection(false);
+      renderResults();
+    });
+
+    input.addEventListener('keydown', event => {
+      const options = $$('.student-result', results);
+      if (event.key === 'Escape') {
+        closeResults();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        if (results.classList.contains('hidden')) renderResults();
+        const available = $$('.student-result', results);
+        if (!available.length) return;
+        event.preventDefault();
+        activeIndex = event.key === 'ArrowDown'
+          ? Math.min(available.length - 1, activeIndex + 1)
+          : Math.max(0, activeIndex - 1);
+        available.forEach((option, index) => {
+          option.classList.toggle('active', index === activeIndex);
+          option.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
+        });
+        available[activeIndex]?.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (event.key === 'Enter') {
+        if (!options.length) return;
+        event.preventDefault();
+        const target = options[activeIndex >= 0 ? activeIndex : 0];
+        target?.click();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      window.setTimeout(() => {
+        if (!results.contains(document.activeElement)) closeResults();
+      }, 140);
+    });
+
+    results.addEventListener('mousedown', event => event.preventDefault());
+    results.addEventListener('click', event => {
+      const button = event.target.closest('[data-student-id]');
+      if (!button) return;
+      const student = state.students.find(item => Number(item.id) === Number(button.dataset.studentId));
+      if (student) paintSelection(student);
+      input.focus();
+    });
+
+    clear.addEventListener('click', () => {
+      clearSelection(true);
+      input.focus();
+      renderResults();
+    });
+
+    renderResults();
+    closeResults();
   }
 
   function renderReportForm(report) {
@@ -996,18 +1250,7 @@
       setMessage('form-message', 'error', 'No hay alumnos activos dentro de su ámbito. Contacte a la administración.');
     }
 
-    if (isCreate) {
-      const search = $('#form-student-search');
-      const select = $('#form-student-select');
-      if (search && select) {
-        select.innerHTML = `<option value="" disabled selected>Seleccione un alumno…</option>${buildStudentOptions()}`;
-        search.addEventListener('input', () => {
-          const current = select.value;
-          select.innerHTML = `<option value="" disabled>Seleccione un alumno…</option>${buildStudentOptions(search.value)}`;
-          if ([...select.options].some(option => option.value === current)) select.value = current;
-        }, { once: false });
-      }
-    }
+    if (isCreate) setupStudentPicker();
 
     modal.dataset.mode = isCreate ? 'create' : 'edit';
   }
@@ -1135,14 +1378,17 @@
     return `
       <div class="section-block">
         <h3>Alumno/a</h3>
-        <div class="form-group">
-          <label for="form-student-search">Buscar alumno</label>
-          <input type="text" id="form-student-search" placeholder="Nombre, DNI o curso…" autocomplete="off">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="form-student-select">Seleccione el legajo *</label>
-          <select id="form-student-select" size="7" required></select>
-          <p class="form-help">Sólo se listan alumnos activos de su ámbito autorizado.</p>
+        <div class="form-group student-picker">
+          <label for="form-student-search">Buscar y seleccionar alumno/a *</label>
+          <div class="student-search-shell">
+            <input type="text" id="form-student-search" placeholder="Nombre, apellido, DNI, legajo o curso…" autocomplete="off"
+              role="combobox" aria-autocomplete="list" aria-controls="form-student-results" aria-expanded="false">
+            <button type="button" class="student-clear hidden" id="form-student-clear" aria-label="Quitar alumno seleccionado">×</button>
+          </div>
+          <input type="hidden" id="form-student-id" value="">
+          <div id="form-student-selected" class="student-selected hidden" aria-live="polite"></div>
+          <div id="form-student-results" class="student-results hidden" role="listbox" aria-label="Resultados de alumnos"></div>
+          <p class="form-help">Escriba para filtrar y haga clic en el alumno correcto. El legajo queda vinculado al informe.</p>
         </div>
       </div>
       <div class="section-block">
@@ -1151,6 +1397,7 @@
           <label for="field-reason">Motivo *</label>
           <input type="text" id="field-reason" maxlength="300" required placeholder="Síntesis breve del hecho">
         </div>
+        ${editableFieldHtml('severity')}
         <div class="form-group">
           <label for="field-description">Descripción del hecho *</label>
           <textarea id="field-description" rows="5" maxlength="5000" required placeholder="Describa lo ocurrido con precisión y sin datos innecesarios."></textarea>
@@ -1167,9 +1414,16 @@
     const value = report ? report[FIELD_PROPS[field]] : '';
     const label = FIELD_LABELS[field] || field;
     if (field === 'severity') {
-      const options = ['LEVE', 'GRAVE', 'MUY GRAVE', 'SUSPENSO'].map(option => `
-        <label class="radio-option"><input type="radio" name="field-severity" value="${option}" ${value === option ? 'checked' : ''}> ${esc(SEVERITY_LABELS[option])}</label>`).join('');
-      return `<div class="form-group"><label>${esc(label)} *</label><div class="radio-group">${options}</div></div>`;
+      const legacy = value === 'SUSPENSO';
+      const options = SEVERITY_OPTIONS.map(option => `
+        <label class="radio-option"><input type="radio" name="field-severity" value="${option}" ${legacy ? '' : 'required'} ${value === option ? 'checked' : ''}> ${esc(SEVERITY_LABELS[option])}</label>`).join('');
+      const legacyOption = legacy
+        ? `<label class="radio-option" title="Valor conservado de un informe anterior"><input type="radio" name="field-severity" value="SUSPENSO" checked disabled> ${esc(SEVERITY_LABELS.SUSPENSO)}</label>`
+        : '';
+      return `<div class="form-group"><label>${esc(label)} *</label><div class="radio-group" role="radiogroup" aria-label="${esc(label)}">${options}${legacyOption}</div>
+        <p class="form-help">${legacy
+          ? 'Este informe conserva una clasificación histórica. Puede mantenerla o elegir una clasificación activa.'
+          : 'Clasificación obligatoria: Leve, Grave o Muy grave.'}</p></div>`;
     }
     if (field === 'notify_student' || field === 'notify_parent') {
       return `<div class="form-group"><label class="checkbox-line"><input type="checkbox" id="field-${field}" ${value ? 'checked' : ''}> ${esc(label)}</label></div>`;
@@ -1213,11 +1467,7 @@
     const readable = new Set(report.form?.readableFields || []);
     let html = reportStudentHeader(report.student);
     REPORT_SECTIONS.forEach(section => {
-      const fields = section.fields.filter(field => {
-        if (!readable.has(field)) return false;
-        if (editable.includes(field)) return true;
-        return hasDetailValue(field, report);
-      });
+      const fields = section.fields.filter(field => readable.has(field));
       if (!fields.length) return;
       html += `<div class="section-block"><h3>${esc(section.title)}</h3>`;
       fields.forEach(field => {
@@ -1266,9 +1516,10 @@
     }
 
     if (isCreate) {
-      const studentId = Number($('#form-student-select')?.value);
+      const studentId = Number($('#form-student-id')?.value);
       if (!studentId) {
-        setMessage('form-message', 'error', 'Seleccione un alumno para el informe.');
+        setMessage('form-message', 'error', 'Seleccione un alumno de la lista de resultados antes de crear el informe.');
+        $('#form-student-search')?.focus();
         return;
       }
       payload.student_id = studentId;
@@ -2158,21 +2409,29 @@
     if (!list) return;
     const notifications = state.notifications;
     list.innerHTML = notifications.map(item => `
-      <div class="notification-item">
+      <div class="notification-item ${item.isRead ? 'is-read' : 'is-unread'}">
         <div class="notif-head">
           <span>${fmtDateTime(item.createdAt)} · ${esc(item.recipientLabel || item.recipientType || 'Destinatario')}</span>
           <span class="stage-badge">${esc(item.type || 'Aviso')}</span>
         </div>
         <strong>${esc(item.studentName ? `Informe de ${item.studentName}` : 'Notificación del sistema')}</strong>
         <p>${esc(item.message)}</p>
-        ${item.reportId ? `<div style="margin-top:6px;"><button type="button" class="link-btn" data-report-action="detail" data-report-id="${item.reportId}">Ver informe N° ${item.reportId}</button></div>` : ''}
+        <div class="notif-foot">
+          <span>${item.isRead && item.readAt ? `Leída el ${fmtDateTime(item.readAt)}` : 'Sin leer'}</span>
+          ${item.reportId ? `<button type="button" class="link-btn" data-report-action="detail" data-report-id="${item.reportId}">Ver informe N° ${item.reportId}</button>` : ''}
+        </div>
       </div>`).join('');
     $('#notificaciones-empty')?.classList.toggle('hidden', notifications.length > 0);
+    updateNotificationBadge();
+  }
+
+  function updateNotificationBadge() {
     const count = $('#nav-notif-count');
-    if (count) {
-      count.textContent = notifications.length > 99 ? '99+' : String(notifications.length);
-      count.classList.toggle('hidden', notifications.length === 0);
-    }
+    if (!count) return;
+    const unread = Math.max(0, Number(state.notificationsUnread) || 0);
+    count.textContent = unread > 99 ? '99+' : String(unread);
+    count.classList.toggle('hidden', unread === 0);
+    count.setAttribute('aria-label', unread === 1 ? '1 notificación sin leer' : `${unread} notificaciones sin leer`);
   }
 
   // ── Eventos ─────────────────────────────────────────────────────
@@ -2232,6 +2491,12 @@
       if (reportButton) {
         event.preventDefault();
         handleReportAction(reportButton.dataset.reportAction, reportButton.dataset.reportId);
+        return;
+      }
+      const stageButton = event.target.closest('[data-stage-queue]');
+      if (stageButton) {
+        event.preventDefault();
+        applyStageQueue(stageButton.dataset.stageQueue);
         return;
       }
       const studentButton = event.target.closest('[data-student-action]');
@@ -2387,6 +2652,10 @@
         api.setCsrf(null);
         showLogin('La sesión expiró o fue cerrada. Vuelva a ingresar.');
       }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (state.me && document.visibilityState === 'visible') refreshNotifications();
     });
   }
 

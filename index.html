@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SistemaDeInformes · ET N° 35</title>
+  <meta name="application-name" content="SistemaDeInformes">
+  <meta name="apple-mobile-web-app-title" content="SistemaDeInformes">
+  <meta name="description" content="Sistema de Informes de Convivencia de la Escuela Técnica N° 35 D.E. 18">
   <link rel="icon" type="image/png" href="./escudo.png">
   <style>
         :root {
@@ -151,6 +155,8 @@
         /* ── WORKFLOW INDICATORS & SECTIONS (unchanged) ── */
         .workflow-indicator { display: flex; justify-content: space-between; margin-bottom: 22px; border-radius: 30px; overflow: hidden; background-color: #e2e8f0; }
         .workflow-step { flex: 1; text-align: center; padding: 7px 8px; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+        button.workflow-step { border: 0; font-family: inherit; cursor: pointer; }
+        button.workflow-step:hover { filter: brightness(0.97); text-decoration: underline; text-underline-offset: 2px; }
         .workflow-step.completed { background-color: #d1fae5; color: #065f46; }
         .workflow-step.current { background-color: #dbeafe; color: #1e40af; }
 
@@ -419,10 +425,13 @@
         .login-logo { width: 84px; height: 84px; object-fit: contain; margin: 0 auto 12px; display: block; }
         .login-box h1 { font-size: 1.05rem; color: var(--text-dark); margin-bottom: 2px; }
         .login-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
+        .login-access-note { font-size: 0.74rem; color: #475569; line-height: 1.45; margin: -4px 0 14px; text-align: left; }
         .login-demo-notice { background: #fffbeb; border: 1px solid var(--accent); color: #5c5220; font-size: 0.76rem; border-radius: 6px; padding: 8px 10px; margin-bottom: 16px; text-align: left; }
         #loginForm { text-align: left; }
         #loginForm label { font-size: 0.8rem; font-weight: 600; color: var(--text-dark); display:block; }
         #loginForm input[type=email], #loginForm input[type=password] { width: 100%; margin-top: 4px; }
+        #loginForm .password-field { margin-top: 4px; }
+        #loginForm .password-field input { margin-top: 0; }
         .login-error { background: #fdecea; color: var(--danger); border: 1px solid #f5b7b1; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; margin-top: 12px; }
         .btn-brand { background-color: var(--brand); color: #fff; }
         .btn-brand:hover { background-color: var(--brand-dark); }
@@ -570,6 +579,44 @@
         .form-warning { background: #fffbeb; border: 1px solid var(--accent); color: #5c5220; border-radius: 6px; padding: 9px 11px; font-size: .8rem; margin-bottom: 13px; }
         .form-error { background: #fdecea; color: var(--danger); border: 1px solid #f5b7b1; border-radius: 6px; padding: 8px 11px; font-size: .8rem; margin-bottom: 12px; }
         .form-success { background: #e9eddf; color: var(--verde-institucional); border: 1px solid #c8d4b7; border-radius: 6px; padding: 8px 11px; font-size: .8rem; margin-bottom: 12px; }
+
+        /* ── BANDEJAS POR ETAPA ── */
+        .stage-queues { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin: 2px 0 12px; }
+        .stage-queues-label { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: #64748b; margin-right: 2px; }
+        .stage-queue { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #dbe3ec; background: #fff; color: #334155; border-radius: 999px; padding: 6px 10px; font-family: inherit; font-size: .76rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+        .stage-queue:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        .stage-queue.active { background: var(--azul-institucional); border-color: var(--azul-institucional); color: #fff; }
+        .stage-queue-count { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: #eef3f8; color: var(--azul-institucional-oscuro); font-variant-numeric: tabular-nums; text-align: center; }
+        .stage-queue.active .stage-queue-count { background: rgba(255,255,255,.2); color: #fff; }
+
+        /* ── SELECTOR DE ALUMNO ── */
+        .student-search-shell { position: relative; }
+        .student-search-shell input { padding-right: 40px; }
+        .student-clear { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: #64748b; font-size: 1.25rem; line-height: 1; cursor: pointer; }
+        .student-clear:hover { background: #f1f5f9; color: #0f172a; }
+        .student-results { margin-top: 6px; max-height: 260px; overflow-y: auto; border: 1px solid #dbe3ec; border-radius: 8px; background: #fff; box-shadow: 0 8px 20px rgb(15 23 42 / .08); }
+        .student-result { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; border: 0; border-bottom: 1px solid #eef2f7; background: #fff; padding: 9px 12px; text-align: left; cursor: pointer; }
+        .student-result:last-child { border-bottom: 0; }
+        .student-result:hover, .student-result.active, .student-result:focus-visible { background: #eef3f8; outline: none; }
+        .student-result-name { font-size: .88rem; font-weight: 700; color: #1e293b; }
+        .student-result-meta { font-size: .73rem; color: #64748b; }
+        .student-result-empty { padding: 12px; font-size: .8rem; color: #64748b; font-style: italic; }
+        .student-selected { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 9px 11px; border: 1px solid #c8d4b7; border-left: 4px solid var(--verde-institucional); border-radius: 7px; background: #f5f8ef; }
+        .student-selected-avatar { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: var(--azul-institucional); color: #fff; font-size: .72rem; font-weight: 800; }
+        .student-selected-info { display: flex; flex-direction: column; min-width: 0; }
+        .student-selected-info strong { font-size: .86rem; color: #1e293b; }
+        .student-selected-info span { font-size: .73rem; color: #64748b; }
+        .student-selected-check { margin-left: auto; color: var(--verde-institucional); font-weight: 900; }
+
+        /* ── MOSTRAR / OCULTAR CONTRASEÑA ── */
+        .password-field { position: relative; }
+        .password-field input { width: 100%; padding-right: 42px !important; }
+        .password-field input::-ms-reveal, .password-field input::-ms-clear { display: none; }
+        .password-toggle { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
+        .password-toggle:hover { background: #f1f5f9; color: var(--azul-institucional-oscuro); }
+        .password-toggle:focus-visible { outline: 2px solid var(--azul-institucional); outline-offset: 1px; }
+        .password-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
         .assignment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; background: #fff; }
         .assignment-option { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 500; color: #334155; margin: 0; padding: 2px 0; }
         .checkbox-line { display: flex; align-items: center; gap: 7px; font-size: .84rem; font-weight: 600; color: #334155; }
@@ -578,10 +625,13 @@
         .import-preview th, .import-preview td { padding: 6px 8px; border-bottom: 1px solid #eeece4; text-align: left; }
         .import-preview th { background: #f8fafc; }
         .error-list { margin: 8px 0 0; padding-left: 18px; color: #991b1b; font-size: .78rem; }
-        .notification-item { border: 1px solid #e2e8f0; border-left: 3px solid var(--azul-institucional); border-radius: 6px; padding: 10px 13px; margin-bottom: 8px; background: #fff; }
+        .notification-item { border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 6px; padding: 10px 13px; margin-bottom: 8px; background: #fff; }
+        .notification-item.is-unread { border-left-color: var(--rojo-institucional); background: #fffdf8; }
         .notification-item .notif-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: .75rem; color: #64748b; }
         .notification-item strong { font-size: .86rem; color: #1e293b; }
         .notification-item p { font-size: .82rem; color: #475569; margin-top: 3px; }
+        .notification-item .notif-foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 7px; padding-top: 6px; border-top: 1px solid #f1f5f9; font-size: .72rem; color: #64748b; }
+        .notification-item .notif-foot .link-btn { font-size: .75rem; font-weight: 700; }
         .account-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
         .account-field { background: #f8fafc; border: 1px solid #e8edf3; border-radius: 7px; padding: 10px 13px; }
         .account-field .field-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 2px; }
@@ -607,6 +657,9 @@
             .admin-toolbar .toolbar-field { min-width: 130px; flex: 1 1 130px; }
             .header-user-chip { display: none; }
             .modal-meta-grid, .alumno-ficha, .form-row { grid-template-columns: 1fr; }
+            .stage-queues { gap: 5px; }
+            .stage-queue { padding: 5px 8px; font-size: .7rem; }
+            .stage-queues-label { width: 100%; margin-bottom: 1px; }
         }
     </style>
 </head>
@@ -631,6 +684,7 @@
             Acceso restringido de uso interno. Las cuentas son creadas por el administrador del sistema.
             No comparta sus credenciales.
         </div>
+        <p class="login-access-note">Todos los perfiles, incluidos los alumnos, ingresan con su mail institucional y contraseña. No hay que buscar cursos ni legajos en esta pantalla.</p>
 
         <form id="loginForm" novalidate>
             <label for="login-email">Mail institucional</label>
@@ -695,7 +749,7 @@
         </button>
         <button type="button" class="nav-btn" data-section="notificaciones" id="nav-notificaciones">
             <span class="nav-icon">◔</span> Notificaciones
-            <span id="nav-notif-count" class="nav-count hidden">0</span>
+            <span id="nav-notif-count" class="nav-count hidden" role="status" aria-live="polite">0</span>
         </button>
 
         <div class="nav-divider"></div>
@@ -746,6 +800,8 @@
             <button type="button" class="tab-btn" data-tab="Anulado">Anulados <span class="tab-count" id="tab-count-anulado">0</span></button>
         </div>
 
+        <div id="stage-queues" class="stage-queues" aria-label="Bandejas de informes por etapa"></div>
+
         <div class="filters-bar">
             <div class="filters-grid">
                 <div class="search-box">
@@ -756,7 +812,6 @@
                     <option value="LEVE">Leve</option>
                     <option value="GRAVE">Grave</option>
                     <option value="MUY GRAVE">Muy grave</option>
-                    <option value="SUSPENSO">Suspenso</option>
                 </select>
                 <select id="filtro-curso" aria-label="Filtrar por curso">
                     <option value="">Todos los cursos</option>
@@ -821,7 +876,7 @@
     <!-- ── NOTIFICACIONES ── -->
     <section id="section-notificaciones" class="app-section">
         <h2 class="page-title">Notificaciones</h2>
-        <p class="page-subtitle">Registro de avisos generados por el sistema. No se envían correos automáticos.</p>
+        <p class="page-subtitle">Avisos dirigidos exclusivamente a su cuenta. Al abrir esta sección se marcan como leídos y permanecen en el historial. No se envían correos automáticos.</p>
         <div id="notificaciones-list"></div>
         <div id="notificaciones-empty" class="empty-state hidden">
             <div style="font-size:2rem;">◔</div>

@@ -102,6 +102,12 @@ export function createApp() {
     res.sendFile(path.join(ROOT, 'node_modules', 'jspdf', 'dist', 'jspdf.umd.min.js'));
   });
 
+  // Alias público legible. El subdominio aleatorio del túnel no puede
+  // renombrarse sin un dominio propio, pero la ruta sí puede ser estable.
+  app.get(['/SistemaDeInformes', '/SistemaDeInformes/'], (_req, res) => {
+    res.redirect(302, '/');
+  });
+
   app.get(['/', '/index.html'], (_req, res) => {
     res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(ROOT, 'index.html'));

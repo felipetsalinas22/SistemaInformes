@@ -28,7 +28,7 @@
     LEVE: 'Leve',
     GRAVE: 'Grave',
     'MUY GRAVE': 'Muy grave',
-    SUSPENSO: 'Suspenso'
+    SUSPENSO: 'Advertencia (histórico)'
   };
 
   const STAGE = {

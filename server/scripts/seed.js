@@ -199,7 +199,7 @@ async function main() {
           data.statementSubmittedAt || null,
           data.statementDeadline,
           data.preceptorNotes || '', data.patNotes || '', data.councilNotes || '',
-          data.additionalNotes || '', data.severity || 'SUSPENSO',
+          data.additionalNotes || '', data.severity || 'LEVE',
           data.otherConsiderations || '', data.directorSignature || 'No Firmado',
           data.directorDate || null,
           data.directorBy ? userIds[data.directorBy] : null,

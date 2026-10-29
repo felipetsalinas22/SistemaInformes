@@ -14,7 +14,7 @@
     "db:seed": "node server/scripts/seed.js",
     "db:reset": "node server/scripts/seed.js --reset",
     "user:create": "node server/scripts/create-admin.js",
-    "test": "node --test tests/",
+    "test": "node --test",
     "check": "node --check server/server.js && node --check js/app.js && node --check js/api.js && node --check js/pdf.js"
   },
   "dependencies": {

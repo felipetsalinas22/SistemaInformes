@@ -237,8 +237,9 @@ export function canManageStudents(user) { return isAdmin(user); }
 export function canManageSettings(user) { return isAdmin(user); }
 
 export function canViewNotificationsModule(user) {
-  if (!user) return false;
-  return isStaff(user) && !isTutor(user);
+  // El endpoint filtra siempre por recipient_user_id: cada cuenta ve sólo
+  // sus propios avisos, incluso alumnado y familias.
+  return Boolean(user && user.is_active);
 }
 
 export function buildPermissions(user) {

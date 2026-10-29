@@ -8,6 +8,7 @@ import { parseBody, dateSchema } from '../lib/validate.js';
 import { writeAudit, writeReportHistory } from '../lib/audit.js';
 import { notifyReportCreated, notifyStatementSubmitted, notifyDictamen, notifyAnnulment } from '../lib/notifications.js';
 import { addStudentScope, addReportScope } from '../lib/scope.js';
+import { ACTIVE_SEVERITIES } from '../lib/severity.js';
 import {
   ALL_FORM_FIELDS, FORM_FIELD_LABELS, reportActions, canCreateReports, canAccessStudent,
   canViewReport, canViewReportHistory, editableFields, canAnnullReport, canRevertAnnullment,
@@ -32,7 +33,9 @@ const REPORT_SELECT = `
   JOIN users creator ON creator.id = r.created_by
 `;
 
-const CREATION_FIELDS = ['student_id', 'reason', 'description', 'issue_date'];
+const CREATION_FIELDS = ['student_id', 'reason', 'description', 'issue_date', 'severity'];
+const SEVERITY_VALUES = ACTIVE_SEVERITIES;
+const UPDATE_SEVERITY_VALUES = [...ACTIVE_SEVERITIES, 'SUSPENSO'];
 
 function courseLabel(row) {
   return `${row.year}° ${row.division}° ${row.specialty}`;
@@ -286,8 +289,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     conditions.push(`r.status = $${params.length}`);
   }
   if (req.query.severity) {
-    if (!['LEVE', 'GRAVE', 'MUY GRAVE', 'SUSPENSO'].includes(req.query.severity)) {
-      throw ApiError.badRequest('Gravedad inválida.');
+    if (!SEVERITY_VALUES.includes(req.query.severity)) {
+      throw ApiError.badRequest('Gravedad inválida. Los valores admitidos son Leve, Grave o Muy grave.');
     }
     params.push(req.query.severity);
     conditions.push(`r.severity = $${params.length}`);
@@ -348,7 +351,10 @@ const createSchema = z.object({
   student_id: z.coerce.number().int().positive(),
   reason: z.string().trim().min(3, 'Indique el motivo del informe.').max(300),
   description: z.string().trim().min(10, 'La descripción debe tener al menos 10 caracteres.').max(5000),
-  issue_date: dateSchema
+  issue_date: dateSchema,
+  severity: z.enum(SEVERITY_VALUES, {
+    error: 'Seleccione la clasificación de la falta: Leve, Grave o Muy grave.'
+  })
 }).strict();
 
 router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
@@ -379,15 +385,15 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
     const inserted = await client.query(
       `INSERT INTO reports
         (student_id, created_by, issuer_name, issuer_role, issuer_email, issue_date, reason, description,
-         statement_deadline, student_course_id, student_first_name, student_last_name, student_name,
+         severity, statement_deadline, student_course_id, student_first_name, student_last_name, student_name,
          student_dni, student_year, student_division, student_specialty, student_shift, student_legajo)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-               date_trunc('day', now()) + ($9::int * interval '1 day') + interval '23 hours 59 minutes',
-               $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+               date_trunc('day', now()) + ($10::int * interval '1 day') + interval '23 hours 59 minutes',
+               $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING id`,
       [
         data.student_id, user.id, user.full_name, user.role_name, user.email,
-        data.issue_date, data.reason, data.description, days,
+        data.issue_date, data.reason, data.description, data.severity, days,
         student.course_id, student.first_name, student.last_name,
         `${student.first_name} ${student.last_name}`.trim(), student.dni,
         student.year, student.division, student.specialty, student.shift, student.legajo
@@ -413,7 +419,7 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
     action: 'CREACIÓN_INFORME',
     entity: 'report',
     entityId: created.id,
-    detail: { studentId: data.student_id, severity: 'SUSPENSO', stage: 'descargo' },
+    detail: { studentId: data.student_id, severity: data.severity, stage: 'descargo' },
     ip: req.ip
   });
 
@@ -430,7 +436,9 @@ const fieldSchemas = {
   pat_notes: z.string().max(5000),
   council_notes: z.string().max(5000),
   additional_notes: z.string().max(2000),
-  severity: z.enum(['LEVE', 'GRAVE', 'MUY GRAVE', 'SUSPENSO']),
+  severity: z.enum(UPDATE_SEVERITY_VALUES, {
+    error: 'La clasificación debe ser Leve, Grave o Muy grave. Suspenso ya no es una opción válida.'
+  }),
   other_considerations: z.string().max(1000),
   director_date: z.union([dateSchema, z.literal('')]),
   director_signature_image: z.string()
@@ -461,6 +469,9 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
     if (!sent.length) throw ApiError.badRequest('No se recibieron campos para actualizar.');
 
     const data = parseBody(updateSchema, req.body);
+    if (data.severity === 'SUSPENSO' && row.severity !== 'SUSPENSO') {
+      throw ApiError.badRequest('Suspenso ya no es una clasificación válida. Elija Leve, Grave o Muy grave.');
+    }
     if (data.issue_date && data.issue_date > today()) throw ApiError.badRequest('La fecha de emisión no puede ser futura.');
     if (data.director_date && data.director_date > today()) throw ApiError.badRequest('La fecha del dictamen no puede ser futura.');
     if (data.director_date && data.director_date < dateOnly(row.issue_date)) {
