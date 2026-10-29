@@ -70,20 +70,20 @@ export async function createSession(userId, req) {
   return { token, csrfToken, expiresAt };
 }
 
-export function setSessionCookie(res, token, expiresAt) {
+export function setSessionCookie(res, token, expiresAt, secureRequest = false) {
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: config.isProduction,
+    secure: config.isProduction || Boolean(secureRequest),
     sameSite: 'lax',
     path: '/',
     expires: expiresAt
   });
 }
 
-export function clearSessionCookie(res) {
+export function clearSessionCookie(res, secureRequest = false) {
   res.clearCookie(SESSION_COOKIE, {
     httpOnly: true,
-    secure: config.isProduction,
+    secure: config.isProduction || Boolean(secureRequest),
     sameSite: 'lax',
     path: '/'
   });

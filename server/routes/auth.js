@@ -66,7 +66,7 @@ router.post('/login', asyncHandler(async (req, res) => {
   );
 
   const session = await createSession(user.id, req);
-  setSessionCookie(res, session.token, session.expiresAt);
+  setSessionCookie(res, session.token, session.expiresAt, req.secure);
   await writeAudit({ actor: user, action: 'LOGIN', entity: 'auth', entityId: user.id, ip: req.ip });
 
   const fresh = { ...user, failed_login_attempts: 0, locked_until: null, last_login_at: new Date() };
@@ -83,7 +83,7 @@ router.post('/logout', requireCsrf, asyncHandler(async (req, res) => {
     await writeAudit({ actor: req.user, action: 'LOGOUT', entity: 'auth', entityId: req.user.id, ip: req.ip });
   }
   await destroySession(token);
-  clearSessionCookie(res);
+  clearSessionCookie(res, req.secure);
   res.json({ ok: true });
 }));
 
