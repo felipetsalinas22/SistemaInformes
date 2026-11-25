@@ -1,15 +1,20 @@
-// Registro de notificaciones. No envía correos: deja constancia en la base
-// para que un servicio institucional (SMTP/API) pueda procesarlas luego.
+// Registro de notificaciones. Cada aviso guarda el correo del destinatario
+// para que la cola de entrega pueda enviarlo después del commit.
 
 async function insertNotification(client, {
-  reportId, recipientUserId = null, recipientType, recipientLabel, type, message, createdBy
+  reportId, recipientUserId = null, recipientEmail = null, recipientType,
+  recipientLabel, type, message, createdBy
 }) {
-  await client.query(
+  const result = await client.query(
     `INSERT INTO notifications
-       (report_id, recipient_user_id, recipient_type, recipient_label, type, message, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [reportId, recipientUserId, recipientType, recipientLabel, type, message, createdBy]
+       (report_id, recipient_user_id, recipient_email, recipient_type,
+        recipient_label, type, message, created_by, delivery_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'en_proceso')
+     RETURNING id`,
+    [reportId, recipientUserId, recipientEmail || null, recipientType,
+      recipientLabel, type, message, createdBy]
   );
+  return Number(result.rows[0].id);
 }
 
 async function recipientsForStudent(client, studentId) {
@@ -74,6 +79,7 @@ export async function notifyReportCreated(client, report, actor) {
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: person.role_code === 'ALUMNO' ? 'alumno' : 'familia',
       recipientLabel: person.role_code === 'ALUMNO' ? studentName : `${person.full_name} (${person.email})`,
       type: 'Nuevo informe registrado',
@@ -86,6 +92,7 @@ export async function notifyReportCreated(client, report, actor) {
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: person.role_code.toLowerCase(),
       recipientLabel: person.full_name,
       type: 'Nuevo informe en su curso',
@@ -108,6 +115,7 @@ export async function notifyStatementSubmitted(client, report, actor) {
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: 'interno',
       recipientLabel: person.full_name,
       type: 'Descargo del alumno presentado',
@@ -130,6 +138,7 @@ export async function notifyDictamen(client, report, actor, { notifyStudent, not
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: isStudent ? 'alumno' : 'familia',
       recipientLabel: isStudent ? studentName : `${person.full_name} (${person.email})`,
       type: 'Notificación de dictamen',
@@ -146,6 +155,7 @@ export async function notifyDictamen(client, report, actor, { notifyStudent, not
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: 'interno',
       recipientLabel: person.full_name,
       type: 'Informe dictaminado',
@@ -162,6 +172,7 @@ export async function notifyDeadlineChanged(client, report, actor, extraDays) {
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: person.role_code === 'ALUMNO' ? 'alumno' : 'familia',
       recipientLabel: person.role_code === 'ALUMNO' ? studentName : `${person.full_name} (${person.email})`,
       type: 'Plazo de descargo prorrogado',
@@ -191,6 +202,7 @@ export async function notifyDeadlineExpired(client, report) {
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: isStudent ? 'alumno' : isFamily ? 'familia' : 'interno',
       recipientLabel: isStudent ? studentName : person.full_name,
       type: 'Plazo de descargo vencido',
@@ -212,6 +224,7 @@ export async function notifyAnnulment(client, report, actor, motivo) {
     await insertNotification(client, {
       reportId: report.id,
       recipientUserId: person.id,
+      recipientEmail: person.email,
       recipientType: 'interno',
       recipientLabel: person.full_name,
       type: 'Informe anulado',

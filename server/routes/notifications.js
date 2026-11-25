@@ -53,7 +53,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
 
   const result = await query(
     `SELECT n.id, n.report_id, n.recipient_type, n.recipient_label, n.type,
-            n.message, n.status, n.created_at, n.read_at,
+            n.message, n.status, n.delivery_status, n.created_at, n.read_at,
             r.student_id, s.first_name, s.last_name
      FROM notifications n
      LEFT JOIN reports r ON r.id = n.report_id
@@ -73,6 +73,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       type: row.type,
       message: row.message,
       status: row.status,
+      deliveryStatus: row.delivery_status || 'en_proceso',
       createdAt: row.created_at,
       readAt: row.read_at,
       isRead: Boolean(row.read_at),

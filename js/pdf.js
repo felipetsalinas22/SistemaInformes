@@ -50,9 +50,14 @@
   function fmtDateTime(value) {
     if (!value) return '—';
     const date = new Date(value);
-    return Number.isNaN(date.getTime())
-      ? '—'
-      : `${date.toLocaleDateString('es-AR')} ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+    if (Number.isNaN(date.getTime())) return '—';
+    const day = date.toLocaleDateString('es-AR');
+    const time = date
+      .toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+      // El espacio antes de a.m./p.m. debe ser indisoluble para que la hora
+      // nunca quede partida en dos renglones dentro del PDF.
+      .replace(/\s+([ap]\.?\s*m\.?)/i, '\u00A0$1');
+    return `${day}\u00A0${time}`;
   }
 
   function getJsPDF() {
@@ -102,8 +107,8 @@
     }
 
     function section(title) {
-      ensure(9);
-      y += 1;
+      ensure(12);
+      y += 3;
       doc.setDrawColor(...NEGRO);
       doc.setLineWidth(0.4);
       doc.line(M, y, M + 4, y);
@@ -111,11 +116,11 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.text(title.toUpperCase(), M + 6, y + 1);
-      y += 4.5;
+      y += 7;
     }
 
     /** Dibuja texto con salto de línea. x/ancho opcionales para dos columnas. */
-    function block(text, x = M, width = RIGHT - M, fontSize = 8, lineHeight = 3.4) {
+    function block(text, x = M, width = RIGHT - M, fontSize = 8, lineHeight = 4) {
       if (text === undefined || text === null || text === '') return 0;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(fontSize);
@@ -145,19 +150,19 @@
       const lines = doc.splitTextToSize(String(value), width - labelWidth);
       if (lines.length === 1) {
         doc.text(lines[0], x + labelWidth, y);
-        y += 3.8;
+        y += 4.6;
       } else {
-        y += 3.0;
+        y += 3.6;
         for (const line of lines) {
-          ensure(3.3);
+          ensure(4);
           doc.text(line, x, y);
-          y += 3.3;
+          y += 4;
         }
       }
-      y += 0.8;
+      y += 1.8;
     }
 
-    function small(text, color = GRAY, fontSize = 7, lineHeight = 3.1) {
+    function small(text, color = GRAY, fontSize = 7, lineHeight = 3.6) {
       if (text === undefined || text === null || text === '') return;
       ensure(5);
       doc.setFont('helvetica', 'normal');
@@ -171,11 +176,13 @@
       }
     }
 
-    /** Historial en una sola línea por evento, con descripción truncada visualmente. */
+    /** Historial en una sola línea por evento para conservar una sola página. */
     function historyLine(item) {
-      const text = `${fmtDateTime(item.createdAt)} · ${item.action} · ${item.actorName || 'Sistema'}`
+      let text = `${fmtDateTime(item.createdAt)} · ${item.action} · ${item.actorName || 'Sistema'}`
         + (item.description ? ` — ${String(item.description).replace(/\s+/g, ' ')}` : '');
-      small(text, GRAY, 6.6, 2.8);
+      const maxChars = 118;
+      if (text.length > maxChars) text = `${text.slice(0, maxChars - 1)}…`;
+      small(text, GRAY, 6.6, 3.2);
     }
 
     function divider() {
@@ -201,7 +208,7 @@
     }
 
     return {
-      doc, M, W, RIGHT, ensure, header, section, labelValue, block, small, historyLine,
+      doc, M, W, RIGHT, PAGE_BOTTOM, ensure, header, section, labelValue, block, small, historyLine,
       divider, footer,
       get y() { return y; },
       set y(value) { y = value; }
@@ -228,7 +235,7 @@
     const staff = Boolean(options.staff);
 
     doc.setFillColor(...LIGHT);
-    doc.roundedRect(writer.M, writer.y, writer.RIGHT - writer.M, 16, 2, 2, 'F');
+    doc.roundedRect(writer.M, writer.y, writer.RIGHT - writer.M, 18, 2, 2, 'F');
     doc.setTextColor(...ROJO_PROFUNDO);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
@@ -238,7 +245,7 @@
     doc.setTextColor(...GRAY);
     doc.text(`DNI ${s.dni || '—'}   ·   Legajo ${s.legajo || '—'}   ·   ${s.course || 'Curso no informado'}`, writer.M + 4, writer.y + 10);
     doc.text(`Estado: ${statusText(data)}   ·   Etapa: ${STAGE[data.stage] || data.stage || '—'}`, writer.M + 4, writer.y + 14.5);
-    writer.y += 19;
+    writer.y += 21;
 
     // Datos principales en dos columnas para ahorrar altura sin quitar campos.
     const colWidth = (writer.RIGHT - writer.M - 6) / 2;
@@ -274,6 +281,9 @@
 
     if (staff && (data.preceptorNotes || data.patNotes || data.councilNotes || data.additionalNotes)) {
       writer.section('Intervenciones institucionales');
+      if (Array.isArray(data.patTeachers) && data.patTeachers.length) {
+        writer.small(`Función PAT / Consejo de Aula: ${data.patTeachers.join(', ')}`);
+      }
       if (data.preceptorNotes || data.patNotes) {
         const top = writer.y;
         writer.labelValue(FIELD_LABELS.preceptorNotes, data.preceptorNotes, writer.M, colWidth);
@@ -293,20 +303,36 @@
     }
 
     if (staff && (data.notifyStudent || data.notifyParent)) {
-      writer.small(`Notificaciones: alumno/a ${data.notifyStudent ? 'notificado' : 'sin notificar'} · familia ${data.notifyParent ? 'notificada' : 'sin notificar'}`);
+      const deliveryLabels = {
+        notificado: { student: 'notificado/a', parent: 'notificada' },
+        en_proceso: { student: 'en proceso', parent: 'en proceso' },
+        error: { student: 'Error de envío', parent: 'Error de envío' }
+      };
+      const statusOf = (key) => {
+        const status = data.notifications?.[key] || 'en_proceso';
+        return (deliveryLabels[status] || deliveryLabels.en_proceso)[key];
+      };
+      writer.small(`Notificaciones por correo: alumno/a ${statusOf('student')} · familia ${statusOf('parent')}`);
       writer.y += 1.5;
     }
 
     if (staff && Array.isArray(data.history) && data.history.length) {
       writer.section('Historial del informe');
-      data.history.forEach(item => writer.historyLine(item));
+      // Se reserva la firma y se recorta el historial para no pasar de página.
+      const room = writer.PAGE_BOTTOM - writer.y - 22;
+      const maxItems = Math.max(0, Math.floor(room / 3.4));
+      const shown = data.history.slice(0, maxItems);
+      shown.forEach(item => writer.historyLine(item));
+      if (shown.length < data.history.length) {
+        writer.small(`Se omiten ${data.history.length - shown.length} evento(s) por espacio. El historial completo está disponible en el sistema.`);
+      }
     }
 
     // Firma: se reserva espacio real antes de seguir escribiendo para evitar
     // que quede sola en una segunda página cuando el historial es extenso.
-    const signatureHeight = 12;
-    writer.ensure(signatureHeight + 3);
-    const signatureTop = writer.y + 4;
+    const signatureHeight = 18;
+    writer.ensure(signatureHeight + 6);
+    const signatureTop = writer.y + 8;
 
     if (data.directorSignatureImage) {
       try {

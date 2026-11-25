@@ -5,11 +5,12 @@
 // ═══════════════════════════════════════════════════════════════════
 import { withTransaction } from '../db.js';
 import { notifyDeadlineExpired } from './notifications.js';
+import { flushPendingNotifications } from './notification-delivery.js';
 
 const DEFAULT_SCAN_MINUTES = 5;
 
 export async function scanExpiredDeadlines() {
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const result = await client.query(
       `SELECT r.id, r.student_id, r.created_by, r.statement_deadline,
               COALESCE(r.student_course_id, s.course_id) AS course_id
@@ -44,6 +45,8 @@ export async function scanExpiredDeadlines() {
     }
     return { scanned: result.rows.length, marked, notified };
   });
+  flushPendingNotifications();
+  return result;
 }
 
 export function startDeadlineWorker() {

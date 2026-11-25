@@ -5,8 +5,8 @@ Escuela Técnica N.º 35 D.E. 18 “Ing. Eduardo Latzina”
 ## 1. Ingreso
 
 1. Abra `http://localhost:3000/SistemaDeInformes` o la dirección pública informada por la escuela.
-2. Ingrese con su correo institucional `@latzina.edu.ar` y la contraseña entregada.
-3. Si es la primera vez, el sistema le pedirá cambiar la clave. Puede continuar con la contraseña inicial y cambiarla después desde **Mi cuenta**.
+2. Ingrese con su correo institucional `@latzina.edu.ar`. Las familias/tutores también pueden ingresar con el correo externo que tengan registrado (por ejemplo `@gmail.com`), siempre que la administración lo haya vinculado a sus alumnos.
+3. Si es la primera vez, el sistema le recomienda cambiar la clave inicial `123`. Puede hacerlo en el momento o elegir **Hacerlo más tarde** y cambiarla después desde **Mi cuenta**. El diálogo tiene además un botón ✕ para cerrarlo.
 
 > No comparta su contraseña. Las cuentas las crea solamente la administración.
 
@@ -20,7 +20,7 @@ Escuela Técnica N.º 35 D.E. 18 “Ing. Eduardo Latzina”
 | Preceptoría / Regencia / Rectorado | Seguimiento, observaciones y firma según su ámbito |
 | Alumno / Familia | Ver informes propios y presentar el descargo dentro del plazo |
 
-La función PAT se asigna o se quita desde **Administración → Usuarios**. No es un rol de cuenta.
+La función PAT se asigna o se quita desde **Administración → Usuarios**. No es un rol de cuenta: un docente PAT mantiene su rol docente y recibe esta responsabilidad adicional. En la barra superior aparece el distintivo **PAT** y, en el detalle del informe, un bloque amarillo explica su intervención y nombra al docente responsable del curso. El PAT acompaña y hace seguimiento; no dictamina ni modifica el informe.
 
 ## 3. Informes
 
@@ -54,7 +54,7 @@ Cada informe tiene una fecha y hora límite visible en el detalle. El alumno pue
 
 El ícono **Notificaciones** muestra sólo los avisos sin leer. Cada aviso puede marcarse como leído individualmente o todos juntos. El historial se conserva. Los avisos son privados por destinatario.
 
-Se notifican, entre otros: creación de informe, descargo presentado, dictamen y vencimiento del plazo.
+Se notifican, entre otros: creación de informe, descargo presentado, dictamen y vencimiento del plazo. Cada aviso indica el estado real del correo: **Notificado/a** cuando la entrega fue confirmada, **En proceso** mientras se intenta el envío (por ejemplo, si aún no se configuró SMTP) o **Error de envío** si el servidor de correo rechazó el mensaje. El detalle del informe usa los mismos estados en lugar de un simple «Sí/No».
 
 ## 6. Alumnos
 
@@ -64,6 +64,7 @@ En **Alumnos** puede:
 - **Filtrar por un curso específico** con el selector *Filtrar alumnos por curso*.
 - Ordenar por apellido, curso y división o cantidad de informes.
 - Abrir la ficha y descargar el legajo en PDF.
+- Importar una lista desde **Importar CSV** si se cuenta con administración. Un CSV es un archivo de texto con columnas separadas por comas que se abre como planilla en Excel, Sheets o LibreOffice; las columnas requeridas son `nombres, apellidos, dni, curso` y las opcionales `legajo, email, email_tutor, nacimiento`. Guárdelo como **CSV UTF-8**. La herramienta valida las filas antes de guardarlas; es para **importar** alumnos, no para exportarlos.
 
 Los cursos activos son 1.° a 6.° año, divisiones 1.° a 3.°. En 1.° a 3.° año se cursa **Ciclo Básico**; en 4.° a 6.° año las especialidades son **Computación** y **Automotores**.
 
@@ -80,7 +81,7 @@ Los vencimientos se calculan automáticamente en el servidor, aunque nadie tenga
 
 ## 8. PDF
 
-El botón **PDF** genera el informe o el legajo del alumno. Los informes dictaminados se imprimen en una sola página cuando el texto es de extensión normal; los textos muy largos se reparten en páginas adicionales sin perder firmas ni contenido.
+El botón **PDF** genera el informe o el legajo del alumno. El informe se arma para **una sola página A4**, con más espacio entre secciones y un recuadro reservado para las firmas. Si el historial es muy extenso, se resumen los últimos eventos que caben y se indica que el historial completo está disponible en el sistema. Las fechas con `a.m./p.m.` se mantienen unidas para que no se partan entre renglones.
 
 ## 9. Contraseña
 

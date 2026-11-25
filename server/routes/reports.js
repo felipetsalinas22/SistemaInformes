@@ -7,6 +7,7 @@ import { ApiError, asyncHandler, parseId } from '../lib/http.js';
 import { parseBody, dateSchema } from '../lib/validate.js';
 import { writeAudit, writeReportHistory } from '../lib/audit.js';
 import { notifyReportCreated, notifyStatementSubmitted, notifyDictamen, notifyAnnulment, notifyDeadlineChanged } from '../lib/notifications.js';
+import { flushPendingNotifications } from '../lib/notification-delivery.js';
 import { addStudentScope, addReportScope } from '../lib/scope.js';
 import { ACTIVE_SEVERITIES } from '../lib/severity.js';
 import { courseLabel } from '../lib/course-label.js';
@@ -98,7 +99,40 @@ function buildWorkflow(row) {
   });
 }
 
-function serializeReport(user, row, history = [], warningHours = 24) {
+/** Docentes con función PAT asignados al curso del informe. */
+async function patTeachersForCourse(courseId) {
+  if (!courseId) return [];
+  const result = await query(
+    `SELECT u.full_name
+       FROM pat_assignments pa
+       JOIN users u ON u.id = pa.user_id
+      WHERE pa.course_id = $1 AND u.is_active = TRUE
+      ORDER BY u.full_name`,
+    [courseId]
+  );
+  return result.rows.map(row => row.full_name);
+}
+
+/** Estado real de la entrega de correos al alumno/a y a la familia. */
+async function notificationStatuses(reportId) {
+  const result = await query(
+    `SELECT recipient_type, delivery_status
+       FROM notifications
+      WHERE report_id = $1 AND recipient_type IN ('alumno', 'familia')
+      ORDER BY created_at DESC, id DESC`,
+    [reportId]
+  );
+  const statusFor = (type) => {
+    const rows = result.rows.filter(row => row.recipient_type === type);
+    if (!rows.length) return 'en_proceso';
+    if (rows.some(row => row.delivery_status === 'notificado')) return 'notificado';
+    if (rows.some(row => row.delivery_status === 'error')) return 'error';
+    return 'en_proceso';
+  };
+  return { student: statusFor('alumno'), parent: statusFor('familia') };
+}
+
+function serializeReport(user, row, history = [], warningHours = 24, notifications = null) {
   const actions = reportActions(user, row);
   const readable = new Set(actions.readableFields);
   const staffView = isStaff(user);
@@ -121,6 +155,7 @@ function serializeReport(user, row, history = [], warningHours = 24) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     can: actions,
+    notifications: notifications || { student: 'en_proceso', parent: 'en_proceso' },
     form: {
       editableFields: actions.editableFields,
       readableFields: actions.readableFields
@@ -381,7 +416,10 @@ router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   if (!row || !canViewReport(req.user, row)) throw ApiError.notFound('Informe no encontrado.');
   const history = isStaff(req.user) ? await fetchHistory({ query }, id) : [];
   const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
-  res.json({ report: serializeReport(req.user, row, history, warningHours) });
+  const notifications = isStaff(req.user) ? await notificationStatuses(id) : null;
+  const report = serializeReport(req.user, row, history, warningHours, notifications);
+  report.patTeachers = await patTeachersForCourse(row.course_id);
+  res.json({ report });
 }));
 
 // ── Crear ──────────────────────────────────────────────────────────
@@ -451,6 +489,7 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
     return reportRow;
   });
 
+  flushPendingNotifications();
   const history = await fetchHistory({ query }, created.id);
   await writeAudit({
     actor: user,
@@ -630,6 +669,7 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
     return { row: updatedRow, changed: Object.keys(updates), historyEntries };
   });
 
+  flushPendingNotifications();
   const history = await fetchHistory({ query }, id);
   await writeAudit({
     actor: user,
@@ -695,6 +735,7 @@ router.post('/:id/extend-statement', requireAuth, requireCsrf, asyncHandler(asyn
     return result;
   });
 
+  flushPendingNotifications();
   await writeAudit({
     actor: req.user, action: 'PLAZO_PRORROGADO', entity: 'report', entityId: id,
     detail: { extraDays }, ip: req.ip
@@ -733,6 +774,7 @@ router.post('/:id/annul', requireAuth, requireCsrf, asyncHandler(async (req, res
     return updated;
   });
 
+  flushPendingNotifications();
   const history = await fetchHistory({ query }, id);
   await writeAudit({
     actor: user,

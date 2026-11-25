@@ -13,6 +13,7 @@
     "db:migrate": "node server/scripts/migrate.js",
     "db:seed": "node server/scripts/seed.js",
     "db:reset": "node server/scripts/seed.js --reset",
+    "db:dedupe": "node server/scripts/deduplicate-demo-data.js",
     "user:create": "node server/scripts/create-admin.js",
     "test": "node --test",
     "check": "node --check server/server.js && node --check js/app.js && node --check js/api.js && node --check js/pdf.js"
@@ -24,6 +25,7 @@
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
     "jspdf": "2.5.1",
+    "nodemailer": "^10.6.1",
     "pg": "^8.16.3",
     "zod": "^4.1.12"
   }

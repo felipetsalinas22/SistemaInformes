@@ -10,9 +10,9 @@
 La dirección del sistema la informa la escuela. No hay autorregistro: la cuenta la crea la administración.
 
 1. Abra la dirección institucional en Edge, Chrome o Firefox actualizado.
-2. Ingrese su **mail institucional** y su **contraseña**.
+2. Ingrese su **mail institucional** (`@latzina.edu.ar`) y su **contraseña**. Si es tutor/a, también puede usar el correo externo que figura en el legajo de sus alumnos (por ejemplo `@gmail.com`).
 3. Presione **Ingresar**.
-4. Si recibe una contraseña temporal, el sistema le pedirá cambiarla en el primer acceso.
+4. Si recibe la contraseña inicial `123`, el sistema le recomendará cambiarla. Puede elegir **Hacerlo más tarde** o cerrar el aviso con ✕ y cambiarla después desde **Mi cuenta**.
 
 - Después de **5 intentos fallidos**, la cuenta se bloquea **15 minutos**.
 - La sesión dura aproximadamente **8 horas**. Al terminar, use **Cerrar sesión**; no alcance con cerrar la pestaña.
@@ -71,7 +71,7 @@ No incluya diagnósticos, datos de salud, rumores, información íntima ni datos
 El informe queda **Pendiente**, en etapa **Descargo del alumno**.
 
 - El alumno, su familia y el equipo de preceptoría/PAT/DOE del curso reciben avisos internos.
-- **No se envían correos automáticos.**
+- Si el servidor tiene configurado SMTP, también se envían correos automáticamente. Mientras no esté configurado, el estado figura como **En proceso**; nunca se muestra un aviso como enviado si no se confirmó la entrega.
 - El alumno presenta su descargo dentro del plazo que muestra el sistema.
 - Usted recibe una notificación cuando el descargo se presenta, cuando se emite el dictamen y si el informe se anula.
 - El circuito continúa con preceptoría, PAT/Consejo y dirección. No todos los pasos requieren una acción suya.
@@ -91,10 +91,11 @@ Si el informe ya avanzó, no cree un duplicado. Contacte a preceptoría o direcc
 
 ## 7. Detalle, historial y PDF
 
-**Ver detalle** abre la ficha con el alumno, estado, etapa, datos generales, campos del informe, firma de la autoridad e historial.
+**Ver detalle** abre la ficha con el alumno, estado, etapa, datos generales, campos del informe, firma de la autoridad e historial. Los botones de la barra de etapas lo llevan a esa sección dentro del mismo informe; no lo cierran.
 
 - El curso que muestra el informe es el que tenía el alumno **al momento de crearlo**. Si después cambia de curso, el informe conserva el curso original por trazabilidad.
-- **PDF** o **Descargar PDF** genera el archivo en el navegador.
+- Si hay intervención PAT, aparece un bloque amarillo que explica la función y nombra al docente PAT del curso.
+- **PDF** o **Descargar PDF** genera el archivo en el navegador en una sola página A4, con más espacio entre secciones y las firmas reservadas al final.
 - Si la dirección ya firmó el dictamen, el PDF incluye la firma.
 - El sistema no guarda una copia del PDF: guarda los datos y la firma; el archivo se genera al descargarlo.
 
@@ -118,7 +119,7 @@ Puede recibir avisos de:
 - Informe dictaminado.
 - Informe anulado.
 
-Si el aviso incluye **Ver informe N° …**, puede abrir el detalle desde allí. No use las notificaciones como único canal ante una situación urgente: siga el protocolo institucional.
+Cada aviso muestra el estado del correo: **Notificado/a**, **En proceso** o **Error de envío**. Si el aviso incluye **Ver informe N° …**, puede abrir el detalle desde allí. No use las notificaciones como único canal ante una situación urgente: siga el protocolo institucional.
 
 ## 10. Mi cuenta y contraseña
 
@@ -157,7 +158,7 @@ La nueva contraseña debe tener **mínimo 10 caracteres**, al menos una letra, u
 | El PDF no muestra firma | La firma aparece cuando la dirección ya firmó el dictamen. |
 | La sesión se cerró | Caducó por tiempo o se cambió la contraseña en otro equipo. Vuelva a ingresar. |
 | Aparece “token vencido” | Recargue con F5. Si continúa, cierre sesión, vuelva a ingresar y reintente. |
-| No llegan correos | El sistema no envía correos automáticos; las notificaciones son internas. |
+| No llegan correos | Revise la configuración SMTP del servidor. Mientras no esté activa, los avisos figuran como **En proceso** y no se marca una entrega falsa. |
 
 ## 13. Para la administración
 

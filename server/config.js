@@ -71,7 +71,17 @@ const config = {
   sessionHours: Math.max(1, Math.min(72, Number(process.env.SESSION_HOURS || 8))),
   statementDays: Math.max(1, Math.min(30, Number(process.env.STATEMENT_DAYS || 5))),
   allowInitialPassword: String(process.env.ALLOW_INITIAL_PASSWORD ?? process.env.DEMO_MODE ?? '').toLowerCase() === 'true',
-  trustProxy: Math.max(0, Number(process.env.TRUST_PROXY || 0))
+  trustProxy: Math.max(0, Number(process.env.TRUST_PROXY || 0)),
+  mail: {
+    enabled: String(process.env.MAIL_ENABLED || '').toLowerCase() === 'true',
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+    user: process.env.SMTP_USER || '',
+    password: process.env.SMTP_PASSWORD || '',
+    from: process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@latzina.edu.ar',
+    subjectPrefix: process.env.MAIL_SUBJECT_PREFIX || '[Escuela Técnica N° 35] '
+  }
 };
 
 if (config.isProduction && !config.appOrigins.every(origin => origin.startsWith('https://'))) {

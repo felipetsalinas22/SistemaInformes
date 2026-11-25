@@ -123,6 +123,23 @@
     { title: 'Notificaciones', fields: ['notify_student', 'notify_parent'] }
   ];
 
+  const DETAIL_SECTION_IDS = {
+    'Hecho informado': 'detalle-hecho',
+    'Descargo del alumno/a': 'detalle-descargo',
+    'Intervenciones institucionales': 'detalle-intervenciones',
+    'Dictamen / Consejo de Convivencia': 'detalle-dictamen',
+    'Aclaraciones de autoridades': 'detalle-aclaraciones',
+    'Notificaciones': 'detalle-notificaciones'
+  };
+
+  const DETAIL_STAGE_TARGETS = {
+    creacion: 'detalle-hecho',
+    descargo: 'detalle-descargo',
+    consejos: 'detalle-pat',
+    dictamen: 'detalle-dictamen',
+    notificado: 'detalle-notificaciones'
+  };
+
   const SEVERITY_LABELS = {
     LEVE: 'Leve',
     GRAVE: 'Grave',
@@ -181,7 +198,10 @@
     if (!value) return '—';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '—';
-    return `${date.toLocaleDateString('es-AR')} ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+    const time = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+      .replace(/\s+a\.?\s*m\.?/i, '\u00a0a.m.')
+      .replace(/\s+p\.?\s*m\.?/i, '\u00a0p.m.');
+    return `${date.toLocaleDateString('es-AR')}\u00a0${time}`;
   }
 
   function dateValue(value) {
@@ -306,7 +326,7 @@
   }
 
   function closeModal(id) {
-    if (id === 'modal-password' && state.forcedPassword) return;
+    if (id === 'modal-password' && state.forcedPassword) deferPasswordChange();
     const modal = document.getElementById(id);
     if (modal) modal.classList.remove('open');
     if (!$('.modal-overlay.open')) document.body.style.overflow = '';
@@ -467,6 +487,14 @@
     $('#sidebar-avatar').textContent = initials(name);
     $('#header-user-name').textContent = `${name} · ${roleText}`;
     $('#header-user-chip')?.classList.remove('hidden');
+    const patChip = $('#header-pat-chip');
+    if (patChip) {
+      const patCourses = (me.patCourseIds || []).map(id => courseLabel(courseById(id))).join(', ');
+      patChip.classList.toggle('hidden', !me.isPat);
+      patChip.setAttribute('title', patCourses
+        ? `Función PAT activa en: ${patCourses}`
+        : 'Función PAT activa: seguimiento y consulta de informes');
+    }
 
     $('#nav-admin')?.classList.toggle('hidden', !hasAdminAccess());
     $('#nav-notificaciones')?.classList.toggle('hidden', !state.permissions.viewNotifications);
@@ -973,7 +1001,7 @@
       </article>`;
   }
 
-  function renderWorkflow(workflow, interactive = false) {
+  function renderWorkflow(workflow, mode = 'static') {
     const steps = Array.isArray(workflow) && workflow.length
       ? workflow
       : [
@@ -985,10 +1013,16 @@
       ];
     return steps.map(step => {
       const classes = `workflow-step ${esc(step.state)}`;
-      if (!interactive) return `<div class="${classes}">${esc(step.label)}</div>`;
-      const stage = step.key === 'creacion' ? '' : (step.key || '');
-      return `<button type="button" class="${classes}" data-stage-queue="${esc(stage)}"
-        title="Ver informes en esta bandeja">${esc(step.label)}</button>`;
+      if (mode === 'detail') {
+        return `<button type="button" class="${classes}" data-detail-stage="${esc(step.key || '')}"
+          title="Ir a la sección ${esc(step.label)} de este informe">${esc(step.label)}</button>`;
+      }
+      if (mode === 'queue') {
+        const stage = step.key === 'creacion' ? '' : (step.key || '');
+        return `<button type="button" class="${classes}" data-stage-queue="${esc(stage)}"
+          title="Ver informes en esta bandeja">${esc(step.label)}</button>`;
+      }
+      return `<div class="${classes}">${esc(step.label)}</div>`;
     }).join('');
   }
 
@@ -1027,7 +1061,18 @@
   function detailFieldHtml(field, report) {
     const value = report[FIELD_PROPS[field]];
     if (field === 'notify_student' || field === 'notify_parent') {
-      return `<div class="modal-field-box">${value ? 'Sí' : 'No'}</div>`;
+      const isStudent = field === 'notify_student';
+      const requested = isStudent ? report.notifyStudent : report.notifyParent;
+      if (requested === false) return '<div class="modal-field-box">Sin notificación</div>';
+      const status = report.notifications?.[isStudent ? 'student' : 'parent'] || 'en_proceso';
+      const labels = {
+        notificado: isStudent ? 'Notificado/a' : 'Notificada',
+        en_proceso: 'En proceso',
+        error: 'Error de envío'
+      };
+      const label = labels[status] || labels.en_proceso;
+      const css = status === 'notificado' ? 'status-notificado' : (status === 'error' ? 'status-error' : 'status-en-proceso');
+      return `<div class="modal-field-box"><span class="notification-status ${css}">${label}</span></div>`;
     }
     if (field === 'severity') {
       return `<div class="modal-field-box">${esc(SEVERITY_LABELS[value] || value || '—')}</div>`;
@@ -1047,13 +1092,16 @@
     REPORT_SECTIONS.forEach(section => {
       const visible = section.fields.filter(field => {
         if (!readable.has(field)) return false;
+        // El informe PAT se muestra en su propio bloque destacado.
+        if (field === 'pat_notes') return false;
         return hasDetailValue(field, report);
       });
       if (!visible.length) return;
       const fields = visible.map(field => `
         <div class="modal-section-title">${esc(FIELD_LABELS[field] || field)}</div>
         ${detailFieldHtml(field, report)}`).join('');
-      sections.push(`<div style="margin-top:16px;"><h4 style="font-size:.82rem; color:var(--negro-institucional-oscuro); margin-bottom:6px;">${esc(section.title)}</h4>${fields}</div>`);
+      const anchor = DETAIL_SECTION_IDS[section.title] || '';
+      sections.push(`<div id="${esc(anchor)}" class="detail-section" style="margin-top:16px;"><h4 style="font-size:.82rem; color:var(--negro-institucional-oscuro); margin-bottom:6px;">${esc(section.title)}</h4>${fields}</div>`);
     });
 
     const meta = [
@@ -1093,6 +1141,16 @@
         </div>`
       : '';
 
+    const patTeachers = Array.isArray(report.patTeachers) ? report.patTeachers.filter(Boolean) : [];
+    const patBlock = (readable.has('pat_notes') || patTeachers.length)
+      ? `<div id="detalle-pat" class="pat-highlight">
+          <h4>Función PAT / Consejo de Aula</h4>
+          <p class="pat-explanation">El PAT acompaña y hace seguimiento del curso. No dictamina ni modifica el informe: sólo registra su intervención para orientar al alumno/a y a la familia.</p>
+          <div class="pat-teacher"><span class="pat-teacher-badge">PAT</span><span>Docente responsable: ${esc(patTeachers.join(', ') || 'Asignación institucional del curso')}</span></div>
+          ${readable.has('pat_notes') && report.patNotes ? `<div class="modal-section-title">Informe PAT / Consejo de Aula</div><div class="modal-field-box">${esc(report.patNotes)}</div>` : ''}
+        </div>`
+      : '';
+
     $('#detalle-content').innerHTML = `
       ${reportStudentHeader(report.student)}
       <div class="modal-badges-row">
@@ -1101,11 +1159,12 @@
         ${severityBadge(report.severity)}
       </div>
       ${annulled}
-      <div class="workflow-indicator compact" style="margin:4px 0 16px;">${renderWorkflow(report.workflow, true)}</div>
+      <div class="workflow-indicator compact" style="margin:4px 0 16px;">${renderWorkflow(report.workflow, 'detail')}</div>
       <div class="modal-meta-grid">
         ${meta.map(([label, value]) => `<div class="modal-meta-cell"><div class="meta-label">${esc(label)}</div><div class="meta-val">${esc(value)}</div></div>`).join('')}
       </div>
       ${sections.join('') || '<p class="empty-inline">No hay campos adicionales visibles para su rol.</p>'}
+      ${patBlock}
       ${signature}
       ${history}`;
 
@@ -1680,7 +1739,7 @@
   function readonlyFieldHtml(field, report) {
     const value = report[FIELD_PROPS[field]];
     let display;
-    if (field === 'notify_student' || field === 'notify_parent') display = value ? 'Sí' : 'No';
+    if (field === 'notify_student' || field === 'notify_parent') display = value ? 'Solicitada' : 'Sin notificación';
     else if (field === 'severity') display = SEVERITY_LABELS[value] || value;
     else if (field === 'director_date' || field === 'issue_date') display = fmtDate(value);
     else display = value;
@@ -2106,7 +2165,7 @@
       studentId: roleCode === 'ALUMNO' ? Number($('#usuario-alumno').value) || null : null,
       tutorStudentIds: roleCode === 'TUTOR' ? $$('input[name="user-tutor-student"]:checked').map(input => Number(input.value)) : [],
       // La función PAT se registra en pat_assignments. Sólo aplica a docentes
-      // y se envía siempre (even vacía) para permitir quitarla al editar.
+      // y se envía siempre (incluso vacía) para permitir quitarla al editar.
       patCourseIds: roleCode === 'PROFESOR'
         ? $$('input[name="user-pat-course"]:checked').map(input => Number(input.value))
         : []
@@ -2615,24 +2674,28 @@
       <div class="account-field"><div class="field-label">${esc(label)}</div><div class="field-val">${esc(value)}</div></div>`).join('');
   }
 
-  function skipForcedPassword() {
-    if (!state.allowInitialPassword || !state.forcedPassword) return;
+  function deferPasswordChange() {
+    if (!state.forcedPassword) return;
     state.forcedPassword = false;
-    $('#modal-password').classList.remove('forced');
+    $('#modal-password')?.classList.remove('forced');
+    toast('Continúa con la contraseña inicial. Le volveremos a recordar en el próximo ingreso.', 'success');
+  }
+
+  function skipForcedPassword() {
+    deferPasswordChange();
     closeModal('modal-password');
-    toast('Continúa con la contraseña inicial. Puede cambiarla desde Mi cuenta cuando lo desee.', 'success');
   }
 
   function openPasswordModal(forced) {
     state.forcedPassword = Boolean(forced);
     $('#modal-password').classList.toggle('forced', state.forcedPassword);
     $('#password-forced-note').classList.toggle('hidden', !state.forcedPassword);
-    if (state.allowInitialPassword && state.forcedPassword) {
-      $('#password-forced-note').textContent = 'Puede continuar con la contraseña inicial 123 o cambiarla ahora. Le recomendamos actualizarla desde Mi cuenta.';
+    if (state.forcedPassword) {
+      $('#password-forced-note').textContent = 'Le recomendamos actualizar la contraseña inicial 123. Puede hacerlo ahora o continuar con “Hacerlo más tarde”.';
     } else {
       $('#password-forced-note').textContent = 'Por seguridad, debe cambiar la contraseña temporal antes de continuar.';
     }
-    $('#btn-skip-password')?.classList.toggle('hidden', !(state.allowInitialPassword && state.forcedPassword));
+    $('#btn-skip-password')?.classList.toggle('hidden', !state.forcedPassword);
     $('#pwd-current').value = '';
     $('#pwd-new').value = '';
     $('#pwd-confirm').value = '';
@@ -2677,7 +2740,15 @@
     const list = $('#notificaciones-list');
     if (!list) return;
     const notifications = state.notifications;
-    list.innerHTML = notifications.map(item => `
+    list.innerHTML = notifications.map(item => {
+      const delivery = item.deliveryStatus || 'en_proceso';
+      const deliveryLabel = delivery === 'notificado'
+        ? 'Notificado/a'
+        : (delivery === 'error' ? 'Error de envío' : 'En proceso');
+      const deliveryClass = delivery === 'notificado'
+        ? 'status-notificado'
+        : (delivery === 'error' ? 'status-error' : '');
+      return `
       <div class="notification-item ${item.isRead ? 'is-read' : 'is-unread'}">
         <div class="notif-head">
           <span>${fmtDateTime(item.createdAt)} · ${esc(item.recipientLabel || item.recipientType || 'Destinatario')}</span>
@@ -2687,9 +2758,11 @@
         <p>${esc(item.message)}</p>
         <div class="notif-foot">
           <span>${item.isRead && item.readAt ? `Leída el ${fmtDateTime(item.readAt)}` : 'Sin leer'}</span>
+          <span class="delivery-status ${deliveryClass}">Correo: ${deliveryLabel}</span>
           ${item.reportId ? `<button type="button" class="link-btn" data-report-action="detail" data-report-id="${item.reportId}">Ver informe N° ${item.reportId}</button>` : ''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     $('#notificaciones-empty')?.classList.toggle('hidden', notifications.length > 0);
     updateNotificationBadge();
   }
@@ -2704,7 +2777,24 @@
   }
 
   // ── Eventos ─────────────────────────────────────────────────────
+  function initSearchClearButtons() {
+    $$('[data-search-clear]').forEach(button => {
+      const input = document.getElementById(button.dataset.searchClear);
+      if (!input) return;
+      const sync = () => button.closest('.search-box')?.classList.toggle('has-query', input.value.length > 0);
+      input.addEventListener('input', sync);
+      button.addEventListener('click', () => {
+        input.value = '';
+        sync();
+        input.focus();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      sync();
+    });
+  }
+
   function bindEvents() {
+    initSearchClearButtons();
     $('#loginForm')?.addEventListener('submit', async event => {
       event.preventDefault();
       const email = $('#login-email').value.trim();
@@ -2760,6 +2850,29 @@
       if (reportButton) {
         event.preventDefault();
         handleReportAction(reportButton.dataset.reportAction, reportButton.dataset.reportId);
+        return;
+      }
+      const detailStageButton = event.target.closest('[data-detail-stage]');
+      if (detailStageButton) {
+        event.preventDefault();
+        const modal = document.getElementById('modal-detalle');
+        if (!modal?.classList.contains('open')) return;
+        const body = modal.querySelector('.modal-body') || modal;
+        let targetId = DETAIL_STAGE_TARGETS[detailStageButton.dataset.detailStage] || 'detalle-hecho';
+        if (targetId === 'detalle-pat' && !document.getElementById('detalle-pat')) {
+          targetId = 'detalle-intervenciones';
+        }
+        const target = document.getElementById(targetId);
+        if (target && body.contains(target)) {
+          const top = Math.max(0, target.offsetTop - body.offsetTop - 10);
+          // Asignación directa: el contenedor del modal es el único scroll y
+          // así funciona también cuando el navegador desactiva animaciones.
+          body.scrollTop = top;
+          target.classList.add('detail-section-highlight');
+          window.setTimeout(() => target.classList.remove('detail-section-highlight'), 1400);
+        } else {
+          body.scrollTop = 0;
+        }
         return;
       }
       const stageButton = event.target.closest('[data-stage-queue]');

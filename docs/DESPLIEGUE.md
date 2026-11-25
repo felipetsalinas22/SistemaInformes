@@ -32,6 +32,8 @@ El administrador puede crear informes y corregir los datos de creación mientras
 | Alumno (Guinsburg Mateo) | `alumno.institucional@latzina.edu.ar` | `Alumno.2026!` |
 | Familia (Guinsburg Mateo) | `familia.institucional@latzina.edu.ar` | `Tutor.2026!` |
 
+Además, el seed crea una cuenta **TUTOR** por cada correo familiar distinto de `@latzina.edu.ar` que figure en los legajos (por ejemplo `tutor_guinsburg@gmail.com`), con contraseña inicial `123` y vinculada a sus alumnos. Para probar un ingreso familiar use ese correo; no hace falta buscar cursos ni legajos en la pantalla de acceso.
+
 No se muestra ningún registro público. Las cuentas se crean desde el panel de administración.
 
 ## Firma manuscrita y PDF
@@ -71,6 +73,22 @@ APP_ORIGIN=http://localhost:3000,http://192.168.0.190:3000
 ```
 
 No agregar una barra `/` al final. Si cambia la IP del servidor, actualizar este valor y reiniciar la aplicación.
+
+### Correo automático (opcional)
+
+Las notificaciones internas funcionan siempre. Para enviar también copias por correo, completar:
+
+```env
+MAIL_ENABLED=true
+MAIL_FROM=no-reply@latzina.edu.ar
+SMTP_HOST=smtp.ejemplo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=usuario@latzina.edu.ar
+SMTP_PASS=clave-del-servidor
+```
+
+Con `MAIL_ENABLED=false` (valor por defecto) los avisos quedan en estado **En proceso** y nunca se muestran como notificados. El worker revisa la cola periódicamente; para reintentar los pendientes basta con reiniciar el servidor con la configuración SMTP ya cargada.
 
 ## Instalación
 
@@ -216,6 +234,7 @@ Antes de publicar datos de menores fuera de la red escolar, revisar autorizació
 npm run db:migrate   # aplica migraciones pendientes
 npm run db:seed      # carga datos institucionales de prueba si la base está vacía
 npm run db:reset     # borra y recrea el conjunto de prueba (no usar en producción)
+npm run db:dedupe    # quita nombres repetidos sin borrar datos
 npm run check        # verifica sintaxis del backend y frontend
 ```
 

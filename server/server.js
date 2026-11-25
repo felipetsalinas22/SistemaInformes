@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { closePool } from './db.js';
 import { cleanupExpiredSessions } from './auth.js';
 import { startDeadlineWorker } from './lib/deadlines.js';
+import { startNotificationDeliveryWorker } from './lib/notification-delivery.js';
 
 const app = createApp();
 
@@ -18,6 +19,7 @@ const cleanupTimer = setInterval(() => {
 cleanupTimer.unref();
 
 startDeadlineWorker();
+startNotificationDeliveryWorker();
 
 async function shutdown(signal) {
   console.log(`\n${signal} recibido. Cerrando servidor...`);

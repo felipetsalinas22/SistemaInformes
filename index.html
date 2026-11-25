@@ -22,6 +22,10 @@
             --negro-institucional-oscuro: #0f0f0e;
             --dorado: #EFE375;
             --dorado-oscuro: #d6c74e;
+            /* Amarillo del escudo (muestra dominante #EFE375), atenuado para fondos. */
+            --amarillo-escudo-suave: #F2E982;
+            --amarillo-escudo-borde: #D9CC5E;
+            --amarillo-escudo-texto: #4E430D;
 
             /* Roles funcionales de color: sólo rojo, negro y amarillo del escudo */
             --primary: var(--negro-institucional);       /* navegación / información */
@@ -186,11 +190,20 @@
             display: grid;
             grid-template-columns: 2fr 1fr 80px 80px 80px 80px 110px;
             gap: 0;
-            background: #fff8e1;
-            border-bottom: 2px solid #f5f2e6;
+            background: var(--amarillo-escudo-suave);
+            border: 1px solid var(--amarillo-escudo-borde);
+            border-bottom: 2px solid var(--amarillo-escudo-borde);
+            border-radius: 8px 8px 0 0;
             padding: 9px 18px;
         }
-        .students-table-header span { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #6b6b63; }
+        .students-table-header span { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--amarillo-escudo-texto); text-align: left; }
+        .students-table-header span:nth-child(n+2),
+        .student-card > :nth-child(n+2) { text-align: center; justify-content: center; }
+        .students-table-header span + span,
+        .student-card > * + * { border-left: 1px solid #ece8d9; }
+        .student-card { border-left: 1px solid #ece8d9; border-right: 1px solid #ece8d9; }
+        .student-card:last-child { border-bottom: 1px solid #ece8d9; border-radius: 0 0 8px 8px; }
+        .student-col-value, .student-col-value.dni, .sev-count { font-variant-numeric: tabular-nums; }
         .student-card {
             display: grid;
             grid-template-columns: 2fr 1fr 80px 80px 80px 80px 110px;
@@ -199,10 +212,10 @@
             padding: 12px 18px;
             cursor: pointer;
             transition: background 0.15s;
-            border-bottom: 1px solid #fff8e1;
+            border-bottom: 1px solid #e7e3d4;
             background: white;
         }
-        .student-card:last-child { border-bottom: none; }
+        .student-card:last-child { border-bottom: 1px solid #ece8d9; border-radius: 0 0 8px 8px; }
         .student-card:hover { background: #faf9f3; }
         .student-card-name-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
         .student-avatar {
@@ -383,8 +396,30 @@
         .modal-footer { padding: 14px 20px; border-top: 1px solid #f5f2e6; background: #faf9f3; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0; flex-wrap: wrap; }
         .btn-close { display:inline-flex; align-items:center; justify-content:center; background:none; border:none; padding:4px; cursor:pointer; color:#6b6b63; line-height:1; }
         .btn-close:hover { color: #1b1b19; }
-        #modal-password.forced .btn-close,
-        #modal-password.forced [data-close-modal="modal-password"] { display: none !important; }
+        #modal-password .btn-close {
+            color: var(--rojo-institucional);
+            border: 1px solid rgba(225, 48, 30, .35);
+            background: #fff5f3;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            transition: background .15s, color .15s, transform .15s;
+        }
+        #modal-password .btn-close:hover {
+            background: var(--rojo-institucional);
+            color: #fff;
+            transform: rotate(90deg);
+        }
+        .btn-defer-password {
+            background: var(--rojo-institucional);
+            border-color: var(--rojo-institucional);
+            color: #fff;
+        }
+        .btn-defer-password:hover {
+            background: var(--rojo-institucional-oscuro);
+            border-color: var(--rojo-institucional-oscuro);
+            color: #fff;
+        }
 
         /* ── MODAL DETALLE — refined sections ── */
         .modal-section-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #8a8a80; margin-bottom: 8px; margin-top: 16px; }
@@ -392,6 +427,9 @@
         .modal-field-box { font-size: 0.88rem; color: #3a3a35; background: #faf9f3; padding: 11px 14px; border-radius: 7px; border: 1px solid #ebe7d8; line-height: 1.6; }
         .modal-field-box.student-text { background: #fffdf0; border-color: #fde68a; }
         .modal-field-box.anulado { background: #fff1f2; border-color: #e85c4c; color: #8f1f14; }
+        .csv-help { margin: 12px 0; border: 1px solid var(--amarillo-escudo-borde); border-radius: 7px; background: #fffdf6; padding: 8px 12px; }
+        .csv-help summary { cursor: pointer; font-weight: 700; font-size: .82rem; color: var(--negro-institucional); }
+        .csv-help p { font-size: .78rem; color: var(--text-muted); line-height: 1.5; margin-top: 6px; }
         .modal-student-header { display: flex; align-items: center; gap: 14px; padding: 16px; background: linear-gradient(135deg, #2a0905 0%, #8f1f14 100%); border-radius: 10px; color: white; margin-bottom: 18px; }
         .modal-avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 800; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.25); }
         .modal-student-info h4 { font-size: 1rem; font-weight: 800; margin-bottom: 2px; }
@@ -401,6 +439,31 @@
         .modal-meta-cell { background: #faf9f3; border: 1px solid #ebe7d8; border-radius: 7px; padding: 10px 13px; }
         .modal-meta-cell .meta-label { font-size: 0.67rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #8a8a80; margin-bottom: 3px; }
         .modal-meta-cell .meta-val { font-size: 0.85rem; font-weight: 600; color: #1b1b19; }
+
+        /* Bloque PAT claramente diferenciado dentro del detalle del informe. */
+        .pat-highlight {
+            margin-top: 18px;
+            padding: 14px 16px;
+            border: 1px solid var(--amarillo-escudo-borde);
+            border-left: 5px solid var(--dorado-oscuro);
+            border-radius: 8px;
+            background: linear-gradient(135deg, #fffdf0 0%, var(--amarillo-escudo-suave) 100%);
+        }
+        .pat-highlight h4 { font-size: .88rem; font-weight: 800; color: var(--amarillo-escudo-texto); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+        .pat-highlight .pat-explanation { font-size: .76rem; color: #5c5220; line-height: 1.5; margin-bottom: 10px; }
+        .pat-highlight .pat-teacher { display: flex; align-items: center; gap: 8px; font-size: .84rem; font-weight: 700; color: var(--negro-institucional-oscuro); margin-bottom: 8px; }
+        .pat-highlight .pat-teacher-badge { background: var(--negro-institucional); color: var(--amarillo-escudo-suave); border-radius: 999px; padding: 2px 9px; font-size: .68rem; letter-spacing: .04em; }
+        .pat-highlight .modal-field-box { background: #fffef8; border-color: var(--amarillo-escudo-borde); }
+
+        .detail-section { scroll-margin-top: 12px; border-radius: 8px; transition: background .25s, box-shadow .25s; }
+        .detail-section.detail-section-highlight { background: #fffdf0; box-shadow: 0 0 0 3px rgba(239,227,117,.55); }
+        .notification-status { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: .74rem; font-weight: 700; }
+        .notification-status.status-notificado { background: #f7f1c9; color: #50491f; }
+        .notification-status.status-en-proceso { background: #fff8e1; color: #7a5a08; }
+        .notification-status.status-error { background: #fbe7e3; color: #812217; }
+        .delivery-status { font-size: .7rem; font-weight: 700; border-radius: 999px; padding: 1px 7px; background: #fff8e1; color: #7a5a08; }
+        .delivery-status.status-notificado { background: #f7f1c9; color: #50491f; }
+        .delivery-status.status-error { background: #fbe7e3; color: #812217; }
 
         /* ── BACK BTN ── */
         .back-btn { display: flex; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; color: #6b6b63; font-size: 0.9rem; font-weight: 600; padding: 0; margin-bottom: 18px; }
@@ -417,6 +480,16 @@
         .search-box input { padding-left: 32px; }
         .search-box::before { content:''; position:absolute; left:10px; top:50%; width:11px; height:11px; border:1.5px solid #6b6b63; border-radius:50%; transform:translateY(-60%); }
         .search-box::after { content:''; position:absolute; left:21px; top:calc(50% + 3px); width:5px; border-top:1.5px solid #6b6b63; transform:rotate(45deg); transform-origin:left center; }
+        .search-clear {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+            background: rgba(225,48,30,.10); color: var(--rojo-institucional);
+            font-size: .82rem; line-height: 1; cursor: pointer; display: none;
+            align-items: center; justify-content: center; transition: background .15s, color .15s;
+        }
+        .search-clear:hover { background: var(--rojo-institucional); color: #fff; }
+        .search-box.has-query .search-clear { display: inline-flex; }
+        .search-box input { padding-right: 34px; }
         #studentSearchResults { display: none; position: absolute; z-index: 10; left: 0; right: 0; background-color: #fff; border: 1px solid var(--border); border-radius: 6px; margin-top: 4px; max-height: 260px; overflow-y: auto; box-shadow: var(--shadow); }
 
         /* ── PAGE TITLE ── */
@@ -472,8 +545,9 @@
             min-height: 100vh; width: 100%;
             display: flex; align-items: center; justify-content: center;
             background:
-              radial-gradient(circle at 12% 18%, rgba(239,227,117,.22) 0, transparent 34%),
-              linear-gradient(155deg, #2a0905 0%, var(--negro-institucional-oscuro) 48%, var(--negro-institucional) 100%);
+              radial-gradient(circle at 14% 18%, rgba(239,227,117,.20) 0, transparent 32%),
+              radial-gradient(circle at 86% 84%, rgba(225,48,30,.22) 0, transparent 36%),
+              linear-gradient(155deg, var(--rojo-profundo) 0%, #5d120c 28%, var(--negro-institucional-oscuro) 62%, var(--negro-institucional) 100%);
             padding: 24px;
         }
         .login-box {
@@ -510,6 +584,21 @@
             --danger: #9f2317;
             --border: #d9d6c9;
         }
+        /* Amarillo del escudo, más presente pero sin saturar la interfaz.
+           Se aplica sólo a los elementos importantes que estaban casi invisibles. */
+        .btn-secondary,
+        .workflow-step.completed,
+        .workflow-step.current,
+        .badge-resuelto,
+        .status-resuelto,
+        .deadline-completado,
+        .deadline-cerrado,
+        .form-success {
+            background: var(--amarillo-escudo-suave);
+            border-color: var(--amarillo-escudo-borde);
+            color: var(--amarillo-escudo-texto);
+        }
+        .btn-secondary:hover { background: var(--amarillo-escudo-borde); color: var(--amarillo-escudo-texto); }
         /* Un solo acento para todas las acciones; rojo, negro y amarillo
            son los únicos colores institucionales del escudo. */
         .btn-primary, .btn-brand, .tab-btn.active { background: var(--primary); }
@@ -755,11 +844,11 @@
             Acceso restringido de uso interno. Las cuentas son creadas por el administrador del sistema.
             No comparta sus credenciales.
         </div>
-        <p class="login-access-note">Todos los perfiles, incluidos los alumnos, ingresan con su mail institucional y contraseña. No hay que buscar cursos ni legajos en esta pantalla.</p>
+        <p class="login-access-note">El personal y el alumnado ingresan con su mail institucional. Los tutores pueden ingresar con el correo externo que tengan registrado. No hay que buscar cursos ni legajos en esta pantalla.</p>
 
         <form id="loginForm" novalidate>
-            <label for="login-email">Mail institucional</label>
-            <input type="email" id="login-email" required placeholder="usuario@et35.com.ar" autocomplete="username">
+            <label for="login-email">Correo registrado</label>
+            <input type="email" id="login-email" required placeholder="usuario@latzina.edu.ar" autocomplete="username">
             <label for="login-password" style="margin-top:10px;">Contraseña</label>
             <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
             <div style="display:flex; justify-content:flex-end; margin-top:8px;">
@@ -791,6 +880,7 @@
         <div id="header-user-chip" class="header-user-chip hidden">
             <span class="role-dot"></span>
             <span id="header-user-name">—</span>
+            <span id="header-pat-chip" class="badge-pat hidden">PAT</span>
         </div>
     </div>
 </header>
@@ -877,6 +967,7 @@
             <div class="filters-grid">
                 <div class="search-box">
                     <input type="text" id="filtro-busqueda" placeholder="Buscar alumno, DNI, motivo…" autocomplete="off">
+                    <button type="button" class="search-clear" data-search-clear="filtro-busqueda" aria-label="Limpiar búsqueda">✕</button>
                 </div>
                 <select id="filtro-gravedad" aria-label="Filtrar por gravedad">
                     <option value="">Todas las gravedades</option>
@@ -926,6 +1017,7 @@
                 <div class="filters-grid">
                     <div class="search-box">
                         <input type="text" id="filtro-alumno-busqueda" placeholder="Buscar por nombre, apellido o DNI…" autocomplete="off">
+                        <button type="button" class="search-clear" data-search-clear="filtro-alumno-busqueda" aria-label="Limpiar búsqueda">✕</button>
                     </div>
                     <div class="filter-field">
                         <label for="filtro-alumno-curso">Curso específico</label>
@@ -960,7 +1052,7 @@
     <!-- ── NOTIFICACIONES ── -->
     <section id="section-notificaciones" class="app-section">
         <h2 class="page-title">Notificaciones</h2>
-        <p class="page-subtitle">Avisos dirigidos exclusivamente a su cuenta. Al abrir esta sección se marcan como leídos y permanecen en el historial. No se envían correos automáticos.</p>
+        <p class="page-subtitle">Avisos dirigidos exclusivamente a su cuenta. Al abrir esta sección se marcan como leídos y permanecen en el historial. Si hay correo configurado, los avisos se envían automáticamente; si no, figuran como <strong>En proceso</strong> hasta confirmar la entrega.</p>
         <div id="notificaciones-list"></div>
         <div id="notificaciones-empty" class="empty-state hidden">
             <div style="font-size:2rem;">◔</div>
@@ -993,6 +1085,7 @@
             <div class="admin-toolbar">
                 <div class="toolbar-field search-box" style="flex:1 1 220px;">
                     <input type="text" id="admin-user-search" placeholder="Buscar por nombre, mail o rol…" autocomplete="off">
+                    <button type="button" class="search-clear" data-search-clear="admin-user-search" aria-label="Limpiar búsqueda">✕</button>
                 </div>
                 <select id="admin-user-role-filter" class="toolbar-field" aria-label="Filtrar usuarios por rol">
                     <option value="">Todos los roles</option>
@@ -1035,6 +1128,7 @@
             <div class="admin-toolbar">
                 <div class="toolbar-field search-box" style="flex:1 1 220px;">
                     <input type="text" id="admin-student-search" placeholder="Buscar por nombre, apellido o DNI…" autocomplete="off">
+                    <button type="button" class="search-clear" data-search-clear="admin-student-search" aria-label="Limpiar búsqueda">✕</button>
                 </div>
                 <select id="admin-student-course" class="toolbar-field" aria-label="Filtrar por curso">
                     <option value="">Todos los cursos</option>
@@ -1259,9 +1353,6 @@
             <div id="password-forced-note" class="form-warning hidden">
                 Por seguridad, debe cambiar la contraseña temporal antes de continuar.
             </div>
-            <button type="button" class="btn btn-outline hidden" id="btn-skip-password" style="width:100%; margin-bottom:14px;">
-                Continuar con la contraseña inicial (123)
-            </button>
             <form id="changePasswordForm" novalidate>
                 <div class="form-group">
                     <label for="pwd-current">Contraseña actual</label>
@@ -1278,6 +1369,7 @@
                 </div>
                 <div id="password-message"></div>
                 <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
+                    <button type="button" class="btn btn-defer-password hidden" id="btn-skip-password">Hacerlo más tarde</button>
                     <button type="button" class="btn btn-secondary" data-close-modal="modal-password">Cancelar</button>
                     <button type="submit" class="btn btn-brand">Actualizar contraseña</button>
                 </div>
@@ -1496,8 +1588,14 @@
         <div class="modal-body">
             <div class="modal-note">
                 Columnas requeridas: <strong>nombres, apellidos, dni, curso</strong>. Opcionales: legajo, email, email_tutor, nacimiento.
-                El curso debe coincidir con un curso activo (por ejemplo <em>2° 2° Electrónica</em>). El archivo se valida antes de guardar.
+                El curso debe coincidir con un curso activo (por ejemplo <em>2.º 1.ª Ciclo Básico</em>). El archivo se valida antes de guardar.
             </div>
+            <details class="csv-help">
+                <summary>¿Qué es un CSV y para qué sirve?</summary>
+                <p>CSV significa <strong>valores separados por comas</strong>. Es un archivo de texto que se abre con Excel, Google Sheets o LibreOffice Calc y se ve como una planilla de filas y columnas.</p>
+                <p>Esta opción <strong>importa</strong> alumnos al sistema: cada fila del archivo contiene nombre, apellido, DNI, curso y, si los tiene, legajo, correo del alumno, correo del tutor y fecha de nacimiento. Primero se valida y después se guarda.</p>
+                <p>Para preparar el archivo, complete una planilla con esos encabezados y guárdela como <strong>CSV UTF-8 (delimitado por comas)</strong>. Así se pueden cargar muchos alumnos de una sola vez sin escribirlos uno por uno. El sistema valida cada fila antes de guardarla y muestra un resumen de filas válidas y con errores. Esta herramienta sirve para <strong>importar</strong> datos al sistema; no genera un archivo para exportar.</p>
+            </details>
             <div class="file-drop">
                 <div>Seleccione el archivo CSV (UTF-8, separado por comas)</div>
                 <input type="file" id="csv-file" accept=".csv,text/csv">

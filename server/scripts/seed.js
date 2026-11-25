@@ -14,6 +14,7 @@ import { hashPassword } from '../lib/password.js';
 import {
   notifyReportCreated, notifyStatementSubmitted, notifyDictamen
 } from '../lib/notifications.js';
+import { FIRST_NAMES, LAST_NAMES, nextGeneratedName, normalizeName } from '../lib/demo-names.js';
 
 const RESET = process.argv.includes('--reset');
 const FORCE = process.argv.includes('--force');
@@ -79,47 +80,33 @@ const LEGACY_ACCOUNTS = [
   { key: 'tutor', legacyEmail: 'tutor@et35.demo', email: 'familia.institucional@latzina.edu.ar', password: 'Tutor.2026!', name: 'Familia Guinsburg', role: 'TUTOR', tutorDnis: ['46234018'] }
 ];
 
-const FIRST_NAMES = [
-  'Agustina', 'Facundo', 'Camila', 'Lautaro', 'Sofía', 'Matías', 'Valentina', 'Santiago',
-  'Julieta', 'Martina', 'Nicolás', 'Lucía', 'Tomás', 'Evelyn', 'Bruno', 'Ailen',
-  'Ezequiel', 'Fiorella', 'Gabriel', 'Hernán', 'Isabel', 'Joaquín', 'Karina', 'Luis',
-  'Mariana', 'Nahuel', 'Oriana', 'Paolo', 'Quimey', 'Ramiro', 'Soledad', 'Tiago',
-  'Verónica', 'Wesley', 'Yamila', 'Zoe', 'Bautista', 'Candela', 'Dante', 'Emilia'
-];
-
-const LAST_NAMES = [
-  'Aguirre', 'Benítez', 'Cabrera', 'Díaz', 'Espinoza', 'Fernández', 'Gómez', 'Herrera',
-  'Ibarra', 'Juárez', 'Kowalski', 'López', 'Martínez', 'Navarro', 'Ortiz', 'Pereyra',
-  'Quiroga', 'Ramírez', 'Sosa', 'Torres', 'Urrutia', 'Vargas', 'Wagner', 'Ybarra',
-  'Zamora', 'Acosta', 'Bustos', 'Córdoba', 'Delgado', 'Enriquez', 'Flores', 'García',
-  'Haedo', 'Insaurralde', 'Jiménez', 'Luna', 'Mendoza', 'Núñez', 'Ocampo', 'Paz'
-];
-
+// Cada docente se asigna como máximo a dos divisiones para que la misma
+// persona no aparezca repetida en varias aperturas del sistema.
 const TEACHERS = [
-  { name: 'Laura Gómez', subject: 'Matemática', courses: [0, 8, 11], pat: true },
-  { name: 'Diego Fernández', subject: 'Lengua y Literatura', courses: [0, 7, 10], pat: false },
-  { name: 'Ana Martínez', subject: 'Física', courses: [4, 12, 16], pat: false },
-  { name: 'Sergio Ramírez', subject: 'Química', courses: [5, 13, 6], pat: true },
-  { name: 'Claudia Navarro', subject: 'Historia', courses: [1, 9, 10], pat: false },
-  { name: 'Martín López', subject: 'Geografía', courses: [2, 8, 11], pat: false },
-  { name: 'Paula Herrera', subject: 'Inglés', courses: [0, 3, 16], pat: true },
-  { name: 'Gabriel Torres', subject: 'Educación Física', courses: [7, 9, 14], pat: false },
-  { name: 'Natalia Acosta', subject: 'Computación', courses: [0, 16, 17], pat: false },
-  { name: 'Federico Sosa', subject: 'Automotores', courses: [6, 12, 15], pat: true },
-  { name: 'Valeria Díaz', subject: 'Automotores', courses: [6, 14, 15], pat: false },
-  { name: 'Hernán Vargas', subject: 'Taller de Proyecto', courses: [16, 17, 12], pat: false },
-  { name: 'Mariana Benítez', subject: 'Formación Ética', courses: [1, 2, 7], pat: false },
-  { name: 'Pablo Cabrera', subject: 'Arte y Diseño', courses: [8, 10, 11], pat: false },
-  { name: 'Silvia Pereyra', subject: 'Matemática', courses: [2, 9, 13], pat: false },
-  { name: 'Andrés Quiroga', subject: 'Lengua y Literatura', courses: [3, 12, 15], pat: false },
-  { name: 'Gisella Luna', subject: 'Inglés Técnico', courses: [5, 13, 17], pat: false },
-  { name: 'Marcelo Ortiz', subject: 'Física Aplicada', courses: [4, 14, 15], pat: false },
-  { name: 'Romina Flores', subject: 'Computación', courses: [7, 8, 9], pat: false },
-  { name: 'Emiliano Haedo', subject: 'Automotores', courses: [12, 15, 17], pat: false },
-  { name: 'Verónica Jiménez', subject: 'Historia Argentina', courses: [5, 6, 13], pat: false },
-  { name: 'Cristian Mendoza', subject: 'Deportes', courses: [0, 1, 2], pat: false },
-  { name: 'Jorgelina Paz', subject: 'Automotores', courses: [6, 12, 15], pat: false },
-  { name: 'Alejandro Bustos', subject: 'Formación Laboral', courses: [10, 11, 16], pat: false }
+  { name: 'Laura Gómez', subject: 'Matemática', courses: [0, 8], pat: true },
+  { name: 'Diego Fernández', subject: 'Lengua y Literatura', courses: [0, 7], pat: false },
+  { name: 'Ana Martínez', subject: 'Física', courses: [4, 12], pat: false },
+  { name: 'Sergio Ramírez', subject: 'Química', courses: [5, 13], pat: true },
+  { name: 'Claudia Navarro', subject: 'Historia', courses: [1, 9], pat: false },
+  { name: 'Martín López', subject: 'Geografía', courses: [2, 8], pat: false },
+  { name: 'Paula Herrera', subject: 'Inglés', courses: [0, 3], pat: true },
+  { name: 'Gabriel Torres', subject: 'Educación Física', courses: [7, 9], pat: false },
+  { name: 'Natalia Acosta', subject: 'Computación', courses: [0, 16], pat: false },
+  { name: 'Federico Sosa', subject: 'Automotores', courses: [6, 12], pat: true },
+  { name: 'Valeria Díaz', subject: 'Automotores', courses: [6, 14], pat: false },
+  { name: 'Hernán Vargas', subject: 'Taller de Proyecto', courses: [16, 17], pat: false },
+  { name: 'Mariana Benítez', subject: 'Formación Ética', courses: [1, 2], pat: false },
+  { name: 'Pablo Cabrera', subject: 'Arte y Diseño', courses: [8, 10], pat: false },
+  { name: 'Silvia Pereyra', subject: 'Matemática', courses: [2, 9], pat: false },
+  { name: 'Andrés Quiroga', subject: 'Lengua y Literatura', courses: [3, 12], pat: false },
+  { name: 'Gisella Luna', subject: 'Inglés Técnico', courses: [5, 13], pat: false },
+  { name: 'Marcelo Ortiz', subject: 'Física Aplicada', courses: [4, 14], pat: false },
+  { name: 'Romina Flores', subject: 'Computación', courses: [7, 8], pat: false },
+  { name: 'Emiliano Haedo', subject: 'Automotores', courses: [12, 15], pat: false },
+  { name: 'Verónica Jiménez', subject: 'Historia Argentina', courses: [5, 6], pat: false },
+  { name: 'Cristian Mendoza', subject: 'Deportes', courses: [0, 1], pat: false },
+  { name: 'Jorgelina Paz', subject: 'Automotores', courses: [6, 15], pat: false },
+  { name: 'Alejandro Bustos', subject: 'Formación Laboral', courses: [10, 11], pat: false }
 ];
 
 const STAFF = [
@@ -214,6 +201,12 @@ async function main() {
     const existingStudents = await client.query('SELECT id, dni, first_name, last_name, course_id, email FROM students');
     const dniSet = new Set(existingStudents.rows.map(row => row.dni));
     const usedEmails = new Set();
+    // La nómina de 6.° 2.° Computación es histórica: se conserva y sus nombres
+    // se reservan para que ninguna otra división repita una persona.
+    const reservedNames = new Set(
+      existingStudents.rows.map(row => normalizeName(`${row.first_name} ${row.last_name}`))
+    );
+    let nameCursor = 0;
 
     async function ensureStudent(first, last, dni, courseIndex, birth) {
       const base = `${slug(first)}.${slug(String(last).split(' ')[0])}`;
@@ -239,6 +232,7 @@ async function main() {
       );
       const row = result.rows[0];
       usedEmails.add(row.email.toLowerCase());
+      reservedNames.add(normalizeName(`${row.first_name} ${row.last_name}`));
       return row;
     }
 
@@ -248,7 +242,8 @@ async function main() {
       }
     }
 
-    // Nómina ampliada: 5 alumnos por curso nuevo + rotación en los históricos.
+    // Nómina ampliada: 5 alumnos por división, con nombres completos únicos.
+    // El índice 0 (6.° 2.°) conserva la nómina histórica sin modificaciones.
     const targetCourses = COURSES.map((_, index) => index);
     let addedStudents = 0;
     for (let index = 0; index < 95; index += 1) {
@@ -256,16 +251,16 @@ async function main() {
       // Si el legajo ya existe, se omite: el seed es aditivo, no duplica.
       if (dniSet.has(dni)) continue;
       dniSet.add(dni);
-      const first = FIRST_NAMES[index % FIRST_NAMES.length];
-      const last = LAST_NAMES[(index * 13 + 5) % LAST_NAMES.length];
+      const generated = nextGeneratedName(nameCursor, reservedNames);
+      nameCursor = generated.cursor;
       const courseIndex = targetCourses[index % targetCourses.length];
-      await ensureStudent(first, last, dni, courseIndex, `2010-${String((index % 12) + 1).padStart(2, '0')}-15`);
+      await ensureStudent(generated.first, generated.last, dni, courseIndex, `2010-${String((index % 12) + 1).padStart(2, '0')}-15`);
       addedStudents += 1;
     }
 
     const studentRows = (await client.query(
       `SELECT s.id, s.first_name, s.last_name, s.dni, s.course_id, s.email, s.legajo,
-              c.year, c.division, c.specialty, c.shift
+              s.guardian_email, c.year, c.division, c.specialty, c.shift
        FROM students s JOIN courses c ON c.id = s.course_id ORDER BY s.id`
     )).rows;
     const findCourseIndex = (student) => {
@@ -370,7 +365,7 @@ async function main() {
         roleCode: 'PROFESOR', mustChange: true
       });
       await setCourses(id, teacher.courses);
-      if (teacher.pat) await setPatCourses(id, teacher.courses.slice(0, 2));
+      if (teacher.pat) await setPatCourses(id, teacher.courses.slice(0, 1));
       teacherUsers.push({ ...teacher, id, email });
     }
 
@@ -407,8 +402,36 @@ async function main() {
       }
       tutorAccounts += 1;
     }
+
+    // Familias reales de la nómina: se habilita el correo del tutor (gmail u
+    // otro proveedor) como usuario TUTOR vinculado a sus alumnos.
+    let familyAccounts = 0;
+    const familyGroups = new Map();
+    for (const student of studentRows) {
+      const email = String(student.guardian_email || '').trim().toLowerCase();
+      if (!email || email.endsWith('@latzina.edu.ar')) continue;
+      if (!familyGroups.has(email)) {
+        familyGroups.set(email, { lastName: student.last_name, students: [] });
+      }
+      familyGroups.get(email).students.push(student.id);
+    }
+    for (const [email, family] of familyGroups) {
+      const id = await ensureUser({
+        email, password: INITIAL_PASSWORD,
+        name: `Familia ${family.lastName}`, roleCode: 'TUTOR', mustChange: true
+      });
+      for (const studentId of family.students) {
+        await client.query(
+          'INSERT INTO tutor_students (tutor_user_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [id, studentId]
+        );
+      }
+      familyAccounts += 1;
+    }
+    tutorAccounts += familyAccounts;
     console.log(`• Cuentas: ${teacherUsers.length} docentes, ${studentAccounts} alumnos, ${tutorAccounts} tutores, ${STAFF.length} personal.`);
     console.log('• Cuenta administrativa de exposición: admin@latzina.edu.ar / 123 (rol Administrador).');
+    console.log('• Tutores con correo familiar (ej.: tutor_guinsburg@gmail.com / 123) también pueden iniciar sesión.');
 
     // ── Informes institucionales de prueba ──────────────────────────────────
     const adminId = userIds['admin@latzina.edu.ar'];
