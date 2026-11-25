@@ -4,7 +4,7 @@
 
 -- El "gerente" institucional se modela como un rol de gestión: administra
 -- usuarios, cursos, alumnos, configuración y la función PAT, sin quitarle
--- al Administrador las mismas facultades para la demostración.
+-- al Administrador las mismas facultades para el despliegue institucional.
 INSERT INTO roles (code, name, description, sort_order)
 VALUES ('GERENTE', 'Gerente institucional',
         'Gestiona usuarios, cursos, configuración y asignaciones PAT. Consulta todos los informes y vencimientos.',

@@ -6,27 +6,31 @@ Aplicación web para registrar y seguir informes de convivencia de la Escuela T�
 - Backend: Node.js + Express.
 - Base de datos: PostgreSQL (datos persistentes y centralizados).
 - Autenticación: sesiones en base de datos, cookie `httpOnly`, CSRF y contraseñas con `scrypt`.
-- Roles: administrador, directivos, profesor, preceptor, PAT, DOE, secretaría, asesoría, alumno y tutor.
+- Roles: administrador, gerente, directivos, profesor, preceptor, DOE, secretaría, asesoría, alumno y tutor. PAT es una función asignable a docentes, no un rol.
 
-> El manual de uso para el perfil Profesor/a está en el [README principal](../README.md).
+> Manuales: [Manual técnico](Manual_Tecnico_SistemaInformes.md) · [Manual de usuario](Manual_Usuario_SistemaInformes.md).
 
-## Datos de demostración
+## Datos institucionales de prueba
 
-La nómina de alumnos fue restaurada desde el archivo original provisto. Los informes y las cuentas son de demostración.
+La nómina de alumnos fue restaurada desde el archivo original provisto. Los informes y las cuentas son institucionales de prueba; el colegio cursa sólo Computación y Automotores en 4.°-6.° año.
 
 El administrador puede crear informes y corregir los datos de creación mientras el informe esté pendiente y antes del descargo. No completa el descargo, la preceptoría, el PAT ni el dictamen: esas etapas siguen asignadas a cada rol responsable.
 
-| Rol | Mail | Contraseña |
+| Perfil | Mail | Contraseña |
 |---|---|---|
-| Administrador | `admin@et35.demo` | `Admin.2026!` |
-| Profesor | `profesor@et35.demo` | `Profesor.2026!` |
-| Preceptor | `preceptor@et35.demo` | `Preceptor.2026!` |
-| PAT | `pat@et35.demo` | `Pat.2026!` |
-| Regente | `regente@et35.demo` | `Regente.2026!` |
-| Rector | `rector@et35.demo` | `Rector.2026!` |
-| Secretaría | `secretaria@et35.demo` | `Secretaria.2026!` |
-| Alumno (Guinsburg Mateo) | `alumno@et35.demo` | `Alumno.2026!` |
-| Tutor (Guinsburg Mateo) | `tutor@et35.demo` | `Tutor.2026!` |
+| Administración (acceso principal) | `admin@latzina.edu.ar` | `123` |
+| Gerencia | `gerente@latzina.edu.ar` | `123` |
+| Docencia con función PAT | `prof.laura.gomez@latzina.edu.ar` | `123` |
+| Alumnado | `camila.garcia@latzina.edu.ar` | `123` |
+| Administración histórica | `admin.institucional@latzina.edu.ar` | `Admin.2026!` |
+| Docencia histórica | `profesor.institucional@latzina.edu.ar` | `Profesor.2026!` |
+| Preceptoría histórica | `preceptor.institucional@latzina.edu.ar` | `Preceptor.2026!` |
+| Función PAT histórica | `pat.institucional@latzina.edu.ar` | `Pat.2026!` |
+| Regencia histórica | `regente.institucional@latzina.edu.ar` | `Regente.2026!` |
+| Rectorado histórico | `rector.institucional@latzina.edu.ar` | `Rector.2026!` |
+| Secretaría histórica | `secretaria.institucional@latzina.edu.ar` | `Secretaria.2026!` |
+| Alumno (Guinsburg Mateo) | `alumno.institucional@latzina.edu.ar` | `Alumno.2026!` |
+| Familia (Guinsburg Mateo) | `familia.institucional@latzina.edu.ar` | `Tutor.2026!` |
 
 No se muestra ningún registro público. Las cuentas se crean desde el panel de administración.
 
@@ -56,7 +60,7 @@ DATABASE_URL=postgres://USUARIO:CLAVE@127.0.0.1:5432/sistema_informes
 APP_ORIGIN=http://localhost:3000
 SESSION_HOURS=8
 STATEMENT_DAYS=5
-DEMO_MODE=true
+ALLOW_INITIAL_PASSWORD=true
 TRUST_PROXY=0
 ```
 
@@ -79,7 +83,7 @@ npm run db:seed
 npm start
 ```
 
-Para borrar y recrear los datos de demostración:
+Para reconstruir el conjunto de prueba (borra datos; no usar en producción):
 
 ```powershell
 npm run db:reset
@@ -93,7 +97,7 @@ El servidor queda disponible en `http://localhost:3000`.
 2. Abrir PowerShell en la carpeta del proyecto.
 3. Ejecutar `npm start`.
 4. Abrir `http://localhost:3000` en el navegador.
-5. Ingresar con `admin@et35.demo` / `Admin.2026!`.
+5. Ingresar con `admin@latzina.edu.ar` / `123`.
 
 ## Acceso desde otra computadora de la misma red
 
@@ -203,15 +207,15 @@ Antes de publicar datos de menores fuera de la red escolar, revisar autorizació
 - Los informes conservan una instantánea del alumno y del curso al momento de crearse.
 - Antes de cargar datos reales, definir consentimiento, acceso, respaldo y política de privacidad.
 - Realizar respaldos periódicos de PostgreSQL.
-- Cambiar las contraseñas demo antes de cualquier uso institucional.
+- Cambiar las contraseñas iniciales antes de cualquier uso institucional.
 - No subir `.env` ni respaldos de la base a repositorios públicos.
 
 ## Scripts útiles
 
 ```powershell
 npm run db:migrate   # aplica migraciones pendientes
-npm run db:seed      # carga datos demo si la base está vacía
-npm run db:reset     # borra y recrea los datos demo
+npm run db:seed      # carga datos institucionales de prueba si la base está vacía
+npm run db:reset     # borra y recrea el conjunto de prueba (no usar en producción)
 npm run check        # verifica sintaxis del backend y frontend
 ```
 
@@ -224,5 +228,5 @@ js/app.js               lógica de la interfaz y formularios dinámicos
 js/pdf.js               exportación PDF local
 server/                 API, autenticación, permisos y rutas
 db/migrations/          esquema PostgreSQL
-server/scripts/seed.js  datos de demostración
+server/scripts/seed.js  datos institucionales de prueba
 ```

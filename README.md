@@ -165,7 +165,7 @@ La documentación técnica, instalación, configuración de PostgreSQL, migracio
 
 Antes de usar datos reales:
 
-- cambie las contraseñas de demostración;
+- cambie las contraseñas iniciales;
 - configure HTTPS y `APP_ORIGIN` con la URL institucional;
 - defina respaldos periódicos;
 - revise autorización, privacidad y control de acceso;

@@ -123,7 +123,7 @@ router.post('/register', asyncHandler(async (_req, _res) => {
 
 router.get('/config', (_req, res) => {
   res.json({
-    demoMode: config.demoMode,
+    allowInitialPassword: config.allowInitialPassword,
     schoolName: 'Escuela Técnica N° 35 D.E. 18 "Ing. Eduardo Latzina"',
     sessionHours: config.sessionHours
   });

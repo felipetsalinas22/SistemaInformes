@@ -75,7 +75,7 @@ const BASE_FIELDS = ['reason', 'description', 'issue_date', 'student_text', 'sta
 const OUTCOME_FIELDS = ['severity', 'other_considerations', 'director_date', 'director_signature_image'];
 
 export function isAdmin(user) { return user?.role_code === ROLES.ADMIN; }
-/** Rol de gestión institucional (Gerente) más el administrador de la demo. */
+/** Rol de gestión institucional (Gerente) más el administrador institucional. */
 export function isManager(user) { return MANAGER_ROLES.has(user?.role_code); }
 export function isDirectivo(user) { return DIRECTIVO_ROLES.has(user?.role_code); }
 export function isReadonly(user) { return READONLY_ROLES.has(user?.role_code); }

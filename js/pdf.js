@@ -5,8 +5,8 @@
 (function () {
   'use strict';
 
-  const NAVY = [33, 82, 136];
-  const NAVY_DARK = [23, 60, 99];
+  const NEGRO = [27, 27, 25];
+  const ROJO_PROFUNDO = [42, 9, 5];
   const RED = [225, 48, 30];
   const GRAY = [90, 96, 105];
   const LIGHT = [247, 247, 244];
@@ -70,7 +70,7 @@
     let y = 0;
 
     function header(first) {
-      doc.setFillColor(...(accent || NAVY));
+      doc.setFillColor(...(accent || NEGRO));
       doc.rect(0, 0, W, first ? 24 : 17, 'F');
       doc.setFillColor(...RED);
       doc.rect(0, 0, W, 2.5, 'F');
@@ -104,10 +104,10 @@
     function section(title) {
       ensure(9);
       y += 1;
-      doc.setDrawColor(...NAVY);
+      doc.setDrawColor(...NEGRO);
       doc.setLineWidth(0.4);
       doc.line(M, y, M + 4, y);
-      doc.setTextColor(...NAVY_DARK);
+      doc.setTextColor(...ROJO_PROFUNDO);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.text(title.toUpperCase(), M + 6, y + 1);
@@ -220,7 +220,7 @@
       doc,
       options.schoolName || 'Escuela Técnica N° 35 D.E. 18',
       `Informe N° ${data.id}`,
-      data.status === 'Anulado' ? [120, 45, 38] : NAVY
+      data.status === 'Anulado' ? [120, 45, 38] : NEGRO
     );
     writer.header(true);
 
@@ -229,7 +229,7 @@
 
     doc.setFillColor(...LIGHT);
     doc.roundedRect(writer.M, writer.y, writer.RIGHT - writer.M, 16, 2, 2, 'F');
-    doc.setTextColor(...NAVY_DARK);
+    doc.setTextColor(...ROJO_PROFUNDO);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
     doc.text(s.name || 'Alumno/a', writer.M + 4, writer.y + 5.5);
@@ -345,7 +345,7 @@
       doc,
       options.schoolName || 'Escuela Técnica N° 35 D.E. 18',
       'Legajo de convivencia',
-      NAVY
+      NEGRO
     );
     writer.header(true);
 
@@ -370,7 +370,7 @@
       reports.forEach((item, index) => {
         writer.ensure(18);
         if (index > 0) writer.divider();
-        doc.setTextColor(...NAVY_DARK);
+        doc.setTextColor(...ROJO_PROFUNDO);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.text(`Informe N° ${item.id} · ${fmtDate(item.issueDate)}`, writer.M, writer.y);

@@ -39,7 +39,7 @@
     importCsvText: '',
     importResult: null,
     forcedPassword: false,
-    demoMode: false,
+    allowInitialPassword: false,
     schoolName: 'Escuela Técnica N° 35 D.E. 18',
     configLoaded: false
   };
@@ -281,7 +281,7 @@
     const node = document.createElement('div');
     node.className = 'toast';
     node.textContent = `${type === 'error' ? '✕' : (type === 'success' ? '✓' : 'i')} ${message}`;
-    node.style.background = type === 'error' ? '#9f2317' : (type === 'success' ? '#365c36' : '#1e293b');
+    node.style.background = type === 'error' ? '#9f2317' : (type === 'success' ? '#8a7411' : '#1b1b19');
     container.appendChild(node);
     window.setTimeout(() => node.remove(), 5200);
   }
@@ -371,18 +371,9 @@
 
     try {
       const config = await api.config();
-      state.demoMode = Boolean(config.demoMode);
+      state.allowInitialPassword = Boolean(config.allowInitialPassword);
       if (config.schoolName) state.schoolName = config.schoolName;
       state.configLoaded = true;
-      if (state.demoMode) {
-        $('#badge-demo')?.classList.remove('hidden');
-        const notice = $('#login-demo-notice');
-        if (notice) {
-          notice.innerHTML = '<strong>Instancia de demostración.</strong> Nómina ampliada (1.° a 6.° año, divisiones 1.° a 3.°), '
-            + 'informes, notificaciones y cuentas de prueba. Acceso administrativo: <code>admin@latzina.edu.ar</code> / <code>123</code>. '
-            + 'El resto de las cuentas nuevas también usan <code>123</code>; las cuentas <code>@et35.demo</code> conservan sus claves originales.';
-        }
-      }
     } catch (_) {
       // Si falla /auth/config, se intenta igualmente reanudar la sesión.
     }
@@ -936,7 +927,7 @@
       const fields = visible.map(field => `
         <div class="modal-section-title">${esc(FIELD_LABELS[field] || field)}</div>
         ${detailFieldHtml(field, report)}`).join('');
-      sections.push(`<div style="margin-top:16px;"><h4 style="font-size:.82rem; color:var(--azul-institucional-oscuro); margin-bottom:6px;">${esc(section.title)}</h4>${fields}</div>`);
+      sections.push(`<div style="margin-top:16px;"><h4 style="font-size:.82rem; color:var(--negro-institucional-oscuro); margin-bottom:6px;">${esc(section.title)}</h4>${fields}</div>`);
     });
 
     const meta = [
@@ -1374,7 +1365,7 @@
     ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0f172a';
+    ctx.strokeStyle = '#1b1b19';
 
     const pad = {
       canvas,
@@ -1728,7 +1719,7 @@
             <div class="student-col-value">${esc(student.course)}</div>
             <div class="student-col-value dni">${esc(student.dni)}</div>
             <div><span class="sev-dot" style="background:#d6c74e;"></span><span class="sev-count leve-c ${counts.leve ? '' : 'zero'}">${counts.leve || 0}</span></div>
-            <div><span class="sev-dot" style="background:#c0392b;"></span><span class="sev-count grave-c ${counts.grave ? '' : 'zero'}">${counts.grave || 0}</span></div>
+            <div><span class="sev-dot" style="background:#E1301E;"></span><span class="sev-count grave-c ${counts.grave ? '' : 'zero'}">${counts.grave || 0}</span></div>
             <div><span class="sev-count total-c ${counts.total ? '' : 'zero'}">${counts.total || 0}</span></div>
             <div class="student-row-action"><button type="button" class="btn-ver-detalle" data-student-open="${student.id}">Ver detalle</button></div>
           </div>`;
@@ -2499,23 +2490,23 @@
   }
 
   function skipForcedPassword() {
-    if (!state.demoMode || !state.forcedPassword) return;
+    if (!state.allowInitialPassword || !state.forcedPassword) return;
     state.forcedPassword = false;
     $('#modal-password').classList.remove('forced');
     closeModal('modal-password');
-    toast('Continúa con la contraseña demo. Puede cambiarla desde Mi cuenta cuando lo desee.', 'success');
+    toast('Continúa con la contraseña inicial. Puede cambiarla desde Mi cuenta cuando lo desee.', 'success');
   }
 
   function openPasswordModal(forced) {
     state.forcedPassword = Boolean(forced);
     $('#modal-password').classList.toggle('forced', state.forcedPassword);
     $('#password-forced-note').classList.toggle('hidden', !state.forcedPassword);
-    if (state.demoMode && state.forcedPassword) {
-      $('#password-forced-note').textContent = 'En la instancia de demostración puede continuar con la contraseña 123 o cambiarla ahora. En uso institucional el cambio sería obligatorio.';
+    if (state.allowInitialPassword && state.forcedPassword) {
+      $('#password-forced-note').textContent = 'Puede continuar con la contraseña inicial 123 o cambiarla ahora. Le recomendamos actualizarla desde Mi cuenta.';
     } else {
       $('#password-forced-note').textContent = 'Por seguridad, debe cambiar la contraseña temporal antes de continuar.';
     }
-    $('#btn-skip-password')?.classList.toggle('hidden', !(state.demoMode && state.forcedPassword));
+    $('#btn-skip-password')?.classList.toggle('hidden', !(state.allowInitialPassword && state.forcedPassword));
     $('#pwd-current').value = '';
     $('#pwd-new').value = '';
     $('#pwd-confirm').value = '';

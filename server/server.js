@@ -8,7 +8,7 @@ const app = createApp();
 
 const server = app.listen(config.port, () => {
   console.log(`Sistema de Informes de Convivencia escuchando en ${config.appOrigins.join(', ')}`);
-  console.log(`Entorno: ${config.env}${config.demoMode ? ' (modo demostración)' : ''}`);
+  console.log(`Entorno: ${config.env}${config.allowInitialPassword ? ' (contraseña inicial permitida)' : ''}`);
 });
 
 cleanupExpiredSessions().catch(error => console.error('[auth] No se pudieron limpiar sesiones vencidas:', error.message));

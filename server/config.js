@@ -70,7 +70,7 @@ const config = {
   isAllowedOrigin,
   sessionHours: Math.max(1, Math.min(72, Number(process.env.SESSION_HOURS || 8))),
   statementDays: Math.max(1, Math.min(30, Number(process.env.STATEMENT_DAYS || 5))),
-  demoMode: String(process.env.DEMO_MODE || '').toLowerCase() === 'true',
+  allowInitialPassword: String(process.env.ALLOW_INITIAL_PASSWORD ?? process.env.DEMO_MODE ?? '').toLowerCase() === 'true',
   trustProxy: Math.max(0, Number(process.env.TRUST_PROXY || 0))
 };
 

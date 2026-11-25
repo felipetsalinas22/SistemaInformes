@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════
-//  Seed demostrativo ADITIVO E IDEMPOTENTE.
+//  Seed institucional de prueba ADITIVO E IDEMPOTENTE.
 //  - Nunca borra registros existentes salvo que se ejecute --reset.
 //  - Cada inserción se protege por conflictos naturales (DNI, mail,
 //    legajo vinculado) o por seed_registry (informes).
 //  - Todas las cuentas nuevas usan la contraseña inicial "123".
 //  Uso:
 //    node server/scripts/seed.js            amplía la base actual
-//    node server/scripts/seed.js --reset    reconstruye la demo completa
+//    node server/scripts/seed.js --reset    reconstruye el conjunto de prueba completo
 // ═══════════════════════════════════════════════════════════════════
 import { pool, closePool } from '../db.js';
 import { hashPassword } from '../lib/password.js';
@@ -24,26 +24,28 @@ if (process.env.NODE_ENV === 'production' && !FORCE) {
   process.exit(1);
 }
 
-// Los primeros 7 cursos conservan el orden histórico del seed original.
+// El colegio solamente ofrece Computación y Automotores como especialidades.
+// 1.° a 3.° año son Ciclo Básico; la especialidad se cursa de 4.° a 6.°.
+// Se conserva el orden histórico de los índices usados por docentes y cursos.
 const COURSES = [
   { year: 6, division: 2, specialty: 'Computación', shift: 'Tarde' },
-  { year: 1, division: 1, specialty: 'Informática', shift: 'Mañana' },
-  { year: 2, division: 1, specialty: 'Informática', shift: 'Mañana' },
-  { year: 2, division: 2, specialty: 'Electrónica', shift: 'Tarde' },
-  { year: 3, division: 1, specialty: 'Electrónica', shift: 'Tarde' },
-  { year: 4, division: 1, specialty: 'Química', shift: 'Mañana' },
-  { year: 5, division: 1, specialty: 'Construcciones', shift: 'Tarde' },
+  { year: 1, division: 1, specialty: 'Ciclo Básico', shift: 'Mañana' },
+  { year: 2, division: 1, specialty: 'Ciclo Básico', shift: 'Mañana' },
+  { year: 2, division: 2, specialty: 'Ciclo Básico', shift: 'Tarde' },
+  { year: 3, division: 1, specialty: 'Ciclo Básico', shift: 'Tarde' },
+  { year: 4, division: 1, specialty: 'Computación', shift: 'Mañana' },
+  { year: 5, division: 1, specialty: 'Automotores', shift: 'Tarde' },
   { year: 1, division: 2, specialty: 'Ciclo Básico', shift: 'Tarde' },
   { year: 1, division: 3, specialty: 'Ciclo Básico', shift: 'Mañana' },
   { year: 2, division: 3, specialty: 'Ciclo Básico', shift: 'Tarde' },
   { year: 3, division: 2, specialty: 'Ciclo Básico', shift: 'Mañana' },
   { year: 3, division: 3, specialty: 'Ciclo Básico', shift: 'Tarde' },
-  { year: 4, division: 2, specialty: 'Electrónica', shift: 'Mañana' },
-  { year: 4, division: 3, specialty: 'Química', shift: 'Tarde' },
-  { year: 5, division: 2, specialty: 'Construcciones', shift: 'Mañana' },
-  { year: 5, division: 3, specialty: 'Construcciones', shift: 'Tarde' },
+  { year: 4, division: 2, specialty: 'Automotores', shift: 'Mañana' },
+  { year: 4, division: 3, specialty: 'Computación', shift: 'Tarde' },
+  { year: 5, division: 2, specialty: 'Computación', shift: 'Mañana' },
+  { year: 5, division: 3, specialty: 'Automotores', shift: 'Tarde' },
   { year: 6, division: 1, specialty: 'Computación', shift: 'Mañana' },
-  { year: 6, division: 3, specialty: 'Computación', shift: 'Tarde' }
+  { year: 6, division: 3, specialty: 'Automotores', shift: 'Tarde' }
 ];
 
 // Nómina histórica restaurada del proyecto original (se mantiene en --reset).
@@ -64,17 +66,17 @@ const LEGACY_STUDENTS = [
   ['Valentin', 'Zamira'], ['Vivacqua', 'Antonella'], ['Yavi', 'Perez Kevin Lucas']
 ].map(([first, last], index) => ({ first, last, dni: String(46234001 + index), course: 0 }));
 
-// Cuentas históricas: se conservan con sus contraseñas para no romper accesos.
+// Cuentas históricas: conservan sus contraseñas y pasan a correos institucionales.
 const LEGACY_ACCOUNTS = [
-  { key: 'admin', email: 'admin@et35.demo', password: 'Admin.2026!', name: 'Administrador Demo', role: 'ADMINISTRADOR' },
-  { key: 'profesor', email: 'profesor@et35.demo', password: 'Profesor.2026!', name: 'Profesor Demo', role: 'PROFESOR', courses: [0] },
-  { key: 'preceptor', email: 'preceptor@et35.demo', password: 'Preceptor.2026!', name: 'Preceptor Demo', role: 'PRECEPTOR', courses: [0] },
-  { key: 'pat', email: 'pat@et35.demo', password: 'Pat.2026!', name: 'Equipo PAT Demo', role: 'PROFESOR', courses: [0], patCourses: [0] },
-  { key: 'regente', email: 'regente@et35.demo', password: 'Regente.2026!', name: 'Regente Demo', role: 'REGENTE', scopeAll: true },
-  { key: 'rector', email: 'rector@et35.demo', password: 'Rector.2026!', name: 'Rector Demo', role: 'RECTOR', scopeAll: true },
-  { key: 'secretaria', email: 'secretaria@et35.demo', password: 'Secretaria.2026!', name: 'Secretaría Demo', role: 'SECRETARIA', scopeAll: true },
-  { key: 'alumno', email: 'alumno@et35.demo', password: 'Alumno.2026!', name: 'Guinsburg Mateo', role: 'ALUMNO', studentDni: '46234018' },
-  { key: 'tutor', email: 'tutor@et35.demo', password: 'Tutor.2026!', name: 'Familia Guinsburg (demo)', role: 'TUTOR', tutorDnis: ['46234018'] }
+  { key: 'admin', legacyEmail: 'admin@et35.demo', email: 'admin.institucional@latzina.edu.ar', password: 'Admin.2026!', name: 'Administrador institucional', role: 'ADMINISTRADOR' },
+  { key: 'profesor', legacyEmail: 'profesor@et35.demo', email: 'profesor.institucional@latzina.edu.ar', password: 'Profesor.2026!', name: 'Docente institucional', role: 'PROFESOR', courses: [0] },
+  { key: 'preceptor', legacyEmail: 'preceptor@et35.demo', email: 'preceptor.institucional@latzina.edu.ar', password: 'Preceptor.2026!', name: 'Preceptoría institucional', role: 'PRECEPTOR', courses: [0] },
+  { key: 'pat', legacyEmail: 'pat@et35.demo', email: 'pat.institucional@latzina.edu.ar', password: 'Pat.2026!', name: 'Equipo PAT institucional', role: 'PROFESOR', courses: [0], patCourses: [0] },
+  { key: 'regente', legacyEmail: 'regente@et35.demo', email: 'regente.institucional@latzina.edu.ar', password: 'Regente.2026!', name: 'Regencia institucional', role: 'REGENTE', scopeAll: true },
+  { key: 'rector', legacyEmail: 'rector@et35.demo', email: 'rector.institucional@latzina.edu.ar', password: 'Rector.2026!', name: 'Rectorado institucional', role: 'RECTOR', scopeAll: true },
+  { key: 'secretaria', legacyEmail: 'secretaria@et35.demo', email: 'secretaria.institucional@latzina.edu.ar', password: 'Secretaria.2026!', name: 'Secretaría institucional', role: 'SECRETARIA', scopeAll: true },
+  { key: 'alumno', legacyEmail: 'alumno@et35.demo', email: 'alumno.institucional@latzina.edu.ar', password: 'Alumno.2026!', name: 'Guinsburg Mateo', role: 'ALUMNO', studentDni: '46234018' },
+  { key: 'tutor', legacyEmail: 'tutor@et35.demo', email: 'familia.institucional@latzina.edu.ar', password: 'Tutor.2026!', name: 'Familia Guinsburg', role: 'TUTOR', tutorDnis: ['46234018'] }
 ];
 
 const FIRST_NAMES = [
@@ -103,8 +105,8 @@ const TEACHERS = [
   { name: 'Paula Herrera', subject: 'Inglés', courses: [0, 3, 16], pat: true },
   { name: 'Gabriel Torres', subject: 'Educación Física', courses: [7, 9, 14], pat: false },
   { name: 'Natalia Acosta', subject: 'Computación', courses: [0, 16, 17], pat: false },
-  { name: 'Federico Sosa', subject: 'Electrónica', courses: [3, 4, 12], pat: true },
-  { name: 'Valeria Díaz', subject: 'Construcciones', courses: [6, 14, 15], pat: false },
+  { name: 'Federico Sosa', subject: 'Automotores', courses: [6, 12, 15], pat: true },
+  { name: 'Valeria Díaz', subject: 'Automotores', courses: [6, 14, 15], pat: false },
   { name: 'Hernán Vargas', subject: 'Taller de Proyecto', courses: [16, 17, 12], pat: false },
   { name: 'Mariana Benítez', subject: 'Formación Ética', courses: [1, 2, 7], pat: false },
   { name: 'Pablo Cabrera', subject: 'Arte y Diseño', courses: [8, 10, 11], pat: false },
@@ -113,10 +115,10 @@ const TEACHERS = [
   { name: 'Gisella Luna', subject: 'Inglés Técnico', courses: [5, 13, 17], pat: false },
   { name: 'Marcelo Ortiz', subject: 'Física Aplicada', courses: [4, 14, 15], pat: false },
   { name: 'Romina Flores', subject: 'Computación', courses: [7, 8, 9], pat: false },
-  { name: 'Emiliano Haedo', subject: 'Electrónica', courses: [3, 12, 17], pat: false },
+  { name: 'Emiliano Haedo', subject: 'Automotores', courses: [12, 15, 17], pat: false },
   { name: 'Verónica Jiménez', subject: 'Historia Argentina', courses: [5, 6, 13], pat: false },
   { name: 'Cristian Mendoza', subject: 'Deportes', courses: [0, 1, 2], pat: false },
-  { name: 'Jorgelina Paz', subject: 'Construcciones', courses: [6, 14, 15], pat: false },
+  { name: 'Jorgelina Paz', subject: 'Automotores', courses: [6, 12, 15], pat: false },
   { name: 'Alejandro Bustos', subject: 'Formación Laboral', courses: [10, 11, 16], pat: false }
 ];
 
@@ -266,6 +268,10 @@ async function main() {
               c.year, c.division, c.specialty, c.shift
        FROM students s JOIN courses c ON c.id = s.course_id ORDER BY s.id`
     )).rows;
+    const findCourseIndex = (student) => {
+      const exact = COURSES.findIndex(c => c.year === student.year && c.division === student.division && c.specialty === student.specialty);
+      return exact >= 0 ? exact : COURSES.findIndex(c => c.year === student.year && c.division === student.division);
+    };
     const studentByDni = new Map(studentRows.map(row => [row.dni, row]));
     const studentsByCourse = new Map();
     for (const row of studentRows) {
@@ -309,6 +315,22 @@ async function main() {
         await client.query(
           'INSERT INTO pat_assignments (user_id, course_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
           [userId, courseIds[index]]
+        );
+      }
+    }
+
+    // Las cuentas históricas migran a correos institucionales sin perder su hash.
+    for (const account of LEGACY_ACCOUNTS) {
+      const oldUser = await client.query('SELECT id FROM users WHERE lower(email) = lower($1)', [account.legacyEmail]);
+      const targetUser = await client.query('SELECT id FROM users WHERE lower(email) = lower($1)', [account.email]);
+      if (oldUser.rows[0] && !targetUser.rows[0]) {
+        await client.query(
+          'UPDATE users SET email = $1, full_name = $2, updated_at = now() WHERE id = $3',
+          [account.email, account.name, oldUser.rows[0].id]
+        );
+        await client.query(
+          'UPDATE reports SET issuer_email = $1 WHERE lower(issuer_email) = lower($2)',
+          [account.email, account.legacyEmail]
         );
       }
     }
@@ -388,7 +410,7 @@ async function main() {
     console.log(`• Cuentas: ${teacherUsers.length} docentes, ${studentAccounts} alumnos, ${tutorAccounts} tutores, ${STAFF.length} personal.`);
     console.log('• Cuenta administrativa de exposición: admin@latzina.edu.ar / 123 (rol Administrador).');
 
-    // ── Informes de demostración ──────────────────────────────────
+    // ── Informes institucionales de prueba ──────────────────────────────────
     const adminId = userIds['admin@latzina.edu.ar'];
     const rectorId = userIds['regente@latzina.edu.ar'] || adminId;
     const actor = {
@@ -399,15 +421,26 @@ async function main() {
     };
     const authority = { ...actor, id: rectorId, full_name: 'Regencia ET35', role_name: 'REGENTE' };
 
+    // Las claves de registry históricas pasan a nombres institucionales.
+    await client.query(`
+      UPDATE seed_registry
+         SET key = 'institutional-report-' || substring(key from 13)
+       WHERE key LIKE 'demo-report-%'
+         AND NOT EXISTS (
+           SELECT 1 FROM seed_registry s2
+            WHERE s2.key = 'institutional-report-' || substring(seed_registry.key from 13)
+         )
+    `);
+
     let createdReports = 0;
     for (let index = 0; index < 48; index += 1) {
-      const key = `demo-report-${index + 1}`;
+      const key = `institutional-report-${index + 1}`;
       const already = await client.query('SELECT 1 FROM seed_registry WHERE key = $1', [key]);
       if (already.rows[0]) continue;
 
       const student = studentRows[(index * 7 + 3) % studentRows.length];
       const teachers = teacherUsers.filter(teacher => teacher.courses.includes(
-        COURSES.findIndex(c => c.year === student.year && c.division === student.division && c.specialty === student.specialty)
+        findCourseIndex(student)
       ));
       const creator = teachers[index % Math.max(1, teachers.length)] || teacherUsers[index % teacherUsers.length];
       const issueDaysAgo = (index % 18) + 1;
@@ -425,7 +458,7 @@ async function main() {
       let notifyParent = false;
 
       if (pattern === 1 || pattern === 2) {
-        studentText = `Descargo de demostración del alumno/a. Se reconoce el hecho y se explica la circunstancia. Caso de prueba N° ${index + 1}.`;
+        studentText = `Descargo del alumno/a. Se reconoce el hecho y se explica la circunstancia. Caso de prueba N° ${index + 1}.`;
         submittedAt = new Date(Date.now() - (issueDaysAgo - 1) * 86400000).toISOString();
         stage = 'consejos';
       }
@@ -433,12 +466,12 @@ async function main() {
         stage = 'dictamen';
       }
       if (pattern === 3) {
-        studentText = `Descargo presentado fuera de la etapa inicial (caso de demostración N° ${index + 1}).`;
+        studentText = `Descargo presentado fuera de la etapa inicial (caso institucional N° ${index + 1}).`;
         submittedAt = new Date(Date.now() - 86400000).toISOString();
         stage = 'notificado';
         status = 'Resuelto';
         directorDate = daysAgo(1);
-        signature = 'FIRMADO_AUTORIDAD_DEMO';
+        signature = 'FIRMADO_AUTORIDAD_INSTITUCIONAL';
         severity = 'GRAVE';
         notifyStudent = true;
         notifyParent = true;
@@ -449,9 +482,9 @@ async function main() {
       }
 
       const reason = `${REASONS[index % REASONS.length]}`;
-      const description = `${DESCRIPTIONS[index % DESCRIPTIONS.length]} Registro de demostración N° ${index + 1}.`;
+      const description = `${DESCRIPTIONS[index % DESCRIPTIONS.length]} Registro institucional N° ${index + 1}.`;
       const deadline = daysFromNow(deadlineOffset);
-      const courseIndex = COURSES.findIndex(c => c.year === student.year && c.division === student.division && c.specialty === student.specialty);
+      const courseIndex = findCourseIndex(student);
       const course = COURSES[courseIndex] || COURSES[0];
 
       const inserted = await client.query(
@@ -514,9 +547,9 @@ async function main() {
     );
 
     await client.query('COMMIT');
-    console.log(`• Informes de demostración creados ahora: ${createdReports}.`);
+    console.log(`• Informes institucionales creados ahora: ${createdReports}.`);
     console.log('\n✓ Seed finalizado sin borrar datos existentes.\n');
-    console.log('  Credenciales de demostración (contraseña inicial 123):');
+    console.log('  Credenciales iniciales (contraseña inicial 123):');
     console.log('   admin@latzina.edu.ar      Administrador');
     console.log('   gerente@latzina.edu.ar    Gerente (gestiona usuarios y PAT)');
     console.log('   rector@latzina.edu.ar     Rector/a');
@@ -525,7 +558,7 @@ async function main() {
     console.log('   prof.<nombre>@latzina.edu.ar  Docentes (algunos con función PAT)');
     console.log('   <nombre.apellido>@latzina.edu.ar  Alumnos');
     console.log('   familia.N@latzina.edu.ar  Familias/tutores');
-    console.log('  Las cuentas @et35.demo se conservan con sus contraseñas originales.\n');
+    console.log('  Las cuentas institucionales conservan sus contraseñas originales.\n');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;
