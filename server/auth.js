@@ -152,7 +152,7 @@ export function requireAuth(req, _res, next) {
 export function checkOrigin(req, _res, next) {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
   const origin = req.get('origin');
-  if (origin && !config.appOrigins.includes(origin)) {
+  if (origin && !config.isAllowedOrigin(origin)) {
     return next(ApiError.forbidden('Origen de la petición no permitido.'));
   }
   next();
