@@ -9,6 +9,7 @@ import { writeAudit } from '../lib/audit.js';
 import {
   canManageUsers, ROLES, DIRECTIVO_ROLES, READONLY_ROLES, COURSE_SCOPED_ROLES
 } from '../permissions.js';
+import { courseLabel } from '../lib/course-label.js';
 
 const router = Router();
 
@@ -159,7 +160,7 @@ async function loadAssignments(userIds) {
       year: Number(row.year),
       division: Number(row.division),
       specialty: row.specialty,
-      label: `${row.year}° ${row.division}° ${row.specialty}`
+      label: courseLabel(row)
     });
   }
   const tutorMap = new Map();
@@ -183,7 +184,7 @@ async function loadAssignments(userIds) {
       year: Number(row.year),
       division: Number(row.division),
       specialty: row.specialty,
-      label: `${row.year}° ${row.division}° ${row.specialty}`
+      label: courseLabel(row)
     });
   }
   return { courses: courseMap, tutors: tutorMap, students: studentMap, pats: patMap };

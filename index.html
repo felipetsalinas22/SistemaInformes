@@ -301,11 +301,65 @@
         .alumno-ficha-field .field-val { font-size:0.88rem; font-weight:600; color:#1b1b19; }
 
         /* ── FILTERS ── */
-        .filters-bar { background: white; border: 1px solid #f5f2e6; border-radius: 8px; padding: 14px; margin-bottom: 18px; box-shadow: var(--shadow); }
-        .filters-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-        .filter-field { display: flex; flex-direction: column; gap: 4px; }
-        .filter-field label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); }
-        .filter-field select { width: 100%; }
+        .filters-bar { background: white; border: 1px solid #ebe7d8; border-radius: 12px; padding: 16px; margin-bottom: 18px; box-shadow: var(--shadow); }
+        .filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: end; }
+        .filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .filter-field label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.02em; }
+        .filter-field > select {
+            width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid var(--border);
+            border-radius: 10px; background: #fff; color: var(--text-dark);
+            font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+        }
+        .filter-field > select:hover { border-color: var(--dorado-oscuro); background: #fffdf0; }
+        .filter-field > select:focus-visible { outline: none; border-color: var(--rojo-institucional); box-shadow: 0 0 0 3px rgba(214,199,78,0.32); }
+
+        /* Selector de ordenamiento: control propio conservando las mismas opciones. */
+        .custom-select { position: relative; min-width: 0; }
+        .custom-select > select { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        .custom-select-trigger {
+            width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff;
+            color: var(--text-dark); font: inherit; font-size: 0.9rem; font-weight: 600; text-align: left; cursor: pointer;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+        }
+        .custom-select-trigger:hover { border-color: var(--dorado-oscuro); background: #fffdf0; }
+        .custom-select-trigger:active { transform: translateY(1px); }
+        .custom-select-trigger:focus-visible { outline: none; border-color: var(--rojo-institucional); box-shadow: 0 0 0 3px rgba(214,199,78,0.32); }
+        .custom-select.is-open .custom-select-trigger { border-color: var(--rojo-institucional); background: #fffdf0; box-shadow: 0 0 0 3px rgba(214,199,78,0.32); }
+        .custom-select-icon {
+            width: 9px; height: 9px; flex: none; margin-right: 2px;
+            border-right: 2px solid var(--rojo-institucional-oscuro); border-bottom: 2px solid var(--rojo-institucional-oscuro);
+            transform: rotate(45deg) translateY(-2px); transition: transform 0.18s ease;
+        }
+        .custom-select.is-open .custom-select-icon { transform: rotate(225deg) translateY(-2px); }
+        .custom-select-menu {
+            position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
+            display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto;
+            padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: #fff;
+            box-shadow: 0 12px 30px rgba(27,27,25,0.16); opacity: 0; transform: translateY(-6px) scale(0.98);
+            transform-origin: top center; pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .custom-select.is-open .custom-select-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+        .custom-select-option {
+            width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text-dark);
+            font: inherit; font-size: 0.86rem; font-weight: 600; text-align: left; cursor: pointer;
+            transition: background-color 0.14s ease, color 0.14s ease;
+        }
+        .custom-select-option:hover:not(.is-selected),
+        .custom-select-option.is-focused:not(.is-selected) { background: #fff8e1; color: #8f1f14; }
+        .custom-select-option.is-selected { background: var(--rojo-institucional); color: #fff; }
+        .custom-select-check { font-size: 0.78rem; opacity: 0; color: #fff; }
+        .custom-select-option.is-selected .custom-select-check { opacity: 1; }
+        @media (max-width: 720px) {
+            .filters-grid { grid-template-columns: 1fr; }
+            .custom-select-menu { max-height: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .custom-select-trigger, .custom-select-icon, .custom-select-menu, .custom-select-option { transition: none; }
+        }
 
         /* ── TABS ── */
         .tabs-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -879,11 +933,14 @@
                             <option value="">Todos los cursos</option>
                         </select>
                     </div>
-                    <select id="filtro-alumno-orden" aria-label="Ordenar alumnos">
-                        <option value="apellido">Apellido (A–Z)</option>
-                        <option value="curso">Curso y división</option>
-                        <option value="informes">Más informes</option>
-                    </select>
+                    <div class="filter-field">
+                        <label for="filtro-alumno-orden">Ordenar por</label>
+                        <select id="filtro-alumno-orden" aria-label="Ordenar alumnos">
+                            <option value="apellido">Apellido (A–Z)</option>
+                            <option value="curso">Curso y división</option>
+                            <option value="informes">Más informes</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

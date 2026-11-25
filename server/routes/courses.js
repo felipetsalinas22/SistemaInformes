@@ -6,6 +6,7 @@ import { ApiError, asyncHandler, parseId } from '../lib/http.js';
 import { parseBody } from '../lib/validate.js';
 import { writeAudit } from '../lib/audit.js';
 import { canManageCourses, isStudent, isTutor, isAdmin, isDirectivo, isReadonly } from '../permissions.js';
+import { courseLabel } from '../lib/course-label.js';
 
 const router = Router();
 
@@ -56,7 +57,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       division: Number(row.division),
       specialty: row.specialty,
       shift: row.shift,
-      label: `${row.year}° ${row.division}° ${row.specialty}`,
+      label: courseLabel(row),
       isActive: Boolean(row.is_active)
     }))
   });

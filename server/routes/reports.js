@@ -9,6 +9,7 @@ import { writeAudit, writeReportHistory } from '../lib/audit.js';
 import { notifyReportCreated, notifyStatementSubmitted, notifyDictamen, notifyAnnulment, notifyDeadlineChanged } from '../lib/notifications.js';
 import { addStudentScope, addReportScope } from '../lib/scope.js';
 import { ACTIVE_SEVERITIES } from '../lib/severity.js';
+import { courseLabel } from '../lib/course-label.js';
 import {
   ALL_FORM_FIELDS, FORM_FIELD_LABELS, reportActions, canCreateReports, canAccessStudent,
   canViewReport, canViewReportHistory, editableFields, canAnnullReport, canRevertAnnullment,
@@ -36,10 +37,6 @@ const REPORT_SELECT = `
 const CREATION_FIELDS = ['student_id', 'reason', 'description', 'issue_date', 'severity'];
 const SEVERITY_VALUES = ACTIVE_SEVERITIES;
 const UPDATE_SEVERITY_VALUES = [...ACTIVE_SEVERITIES, 'SUSPENSO'];
-
-function courseLabel(row) {
-  return `${row.year}° ${row.division}° ${row.specialty}`;
-}
 
 function dateOnly(value) {
   if (!value) return null;

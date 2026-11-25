@@ -367,6 +367,7 @@
   // ── Sesión y arranque ───────────────────────────────────────────
   async function boot() {
     enhancePasswordToggles();
+    enhanceSortSelect();
     bindEvents();
 
     try {
@@ -668,12 +669,137 @@
     else select.value = '';
   }
 
+  // Mejora visual del selector de ordenamiento sin cambiar sus opciones:
+  // el <select> original sigue siendo la fuente de verdad y dispara "change".
+  function enhanceSortSelect() {
+    const select = document.getElementById('filtro-alumno-orden');
+    if (!select || select.dataset.customEnhanced) return;
+    select.dataset.customEnhanced = '1';
+
+    const field = select.closest('.filter-field') || select.parentElement;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-select';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'custom-select-trigger';
+    trigger.id = `${select.id}-trigger`;
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const valueLabel = document.createElement('span');
+    valueLabel.className = 'custom-select-value';
+    const icon = document.createElement('span');
+    icon.className = 'custom-select-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    trigger.append(valueLabel, icon);
+
+    const menu = document.createElement('div');
+    menu.className = 'custom-select-menu';
+    menu.id = `${select.id}-menu`;
+    menu.setAttribute('role', 'listbox');
+    menu.setAttribute('aria-label', select.getAttribute('aria-label') || 'Ordenar alumnos');
+    menu.setAttribute('aria-hidden', 'true');
+    trigger.setAttribute('aria-controls', menu.id);
+
+    const optionButtons = () => $$('.custom-select-option', menu);
+
+    const sync = () => {
+      const selected = select.selectedOptions[0];
+      valueLabel.textContent = selected ? selected.textContent.trim() : '';
+      menu.innerHTML = $$('option', select).map(option => {
+        const isSelected = option.value === select.value;
+        return `<button type="button" class="custom-select-option${isSelected ? ' is-selected' : ''}" `
+          + `role="option" aria-selected="${isSelected}" data-value="${esc(option.value)}">`
+          + `<span>${esc(option.textContent.trim())}</span>`
+          + `<span class="custom-select-check" aria-hidden="true">✓</span></button>`;
+      }).join('');
+    };
+
+    const setOpen = (open) => {
+      wrapper.classList.toggle('is-open', open);
+      trigger.setAttribute('aria-expanded', String(open));
+      menu.setAttribute('aria-hidden', String(!open));
+      if (open) {
+        (($('.custom-select-option.is-selected', menu) || $('.custom-select-option', menu)))?.focus();
+      }
+    };
+
+    field.insertBefore(wrapper, select);
+    wrapper.append(select, trigger, menu);
+
+    const label = $('label[for="filtro-alumno-orden"]', field);
+    if (label) label.setAttribute('for', trigger.id);
+    select.setAttribute('tabindex', '-1');
+    select.setAttribute('aria-hidden', 'true');
+    sync();
+
+    trigger.addEventListener('click', () => setOpen(!wrapper.classList.contains('is-open')));
+    trigger.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setOpen(true);
+      } else if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    });
+
+    menu.addEventListener('click', event => {
+      const option = event.target.closest('.custom-select-option');
+      if (!option) return;
+      select.value = option.dataset.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      sync();
+      setOpen(false);
+      trigger.focus();
+    });
+
+    menu.addEventListener('keydown', event => {
+      const options = optionButtons();
+      const index = options.indexOf(document.activeElement);
+      if (!options.length) return;
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        options[(index + 1) % options.length].focus();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        options[(index - 1 + options.length) % options.length].focus();
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        options[0].focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        options[options.length - 1].focus();
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        document.activeElement?.click();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        trigger.focus();
+      }
+    });
+
+    select.addEventListener('change', sync);
+    document.addEventListener('click', event => {
+      if (!wrapper.contains(event.target)) setOpen(false);
+    });
+  }
+
   function populateCourseFilters() {
     const activeCourses = state.courses.filter(course => course.isActive !== false);
+    // El selector de legajos usa TODOS los cursos devueltos por PostgreSQL,
+    // incluidos los inactivos, ordenados por año/división/especialidad.
+    const allCourses = [...state.courses].sort((a, b) =>
+      Number(a.year) - Number(b.year)
+      || Number(a.division) - Number(b.division)
+      || String(a.specialty || '').localeCompare(String(b.specialty || ''), 'es')
+    );
     setSelectOptions('filtro-curso', activeCourses, 'Todos los cursos', undefined,
       course => course.id, course => course.label);
-    setSelectOptions('filtro-alumno-curso', activeCourses, 'Todos los cursos', undefined,
-      course => course.id, course => course.label);
+    setSelectOptions('filtro-alumno-curso', allCourses, 'Todos los cursos', undefined,
+      course => course.id,
+      course => `${course.label}${course.isActive === false ? ' (inactivo)' : ''}`);
     setSelectOptions('admin-student-course', state.courses, 'Todos los cursos', undefined,
       course => course.id, course => `${course.label}${course.isActive === false ? ' (inactivo)' : ''}`);
 

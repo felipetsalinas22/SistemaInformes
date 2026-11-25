@@ -7,6 +7,7 @@ import { parseBody, emailSchema, dateSchema } from '../lib/validate.js';
 import { writeAudit } from '../lib/audit.js';
 import { addStudentScope, addReportScope } from '../lib/scope.js';
 import { canManageStudents, canAccessStudent } from '../permissions.js';
+import { courseLabel, normalizeCourseLabel } from '../lib/course-label.js';
 
 const router = Router();
 
@@ -44,7 +45,7 @@ function mapStudent(row, counts = {}) {
     birthDate: row.birth_date,
     isActive: row.is_active,
     courseId: row.course_id,
-    course: `${row.year}° ${row.division}° ${row.specialty}`,
+    course: courseLabel(row),
     year: Number(row.year),
     division: Number(row.division),
     specialty: row.specialty,
@@ -259,7 +260,7 @@ router.delete('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) =>
 // ── Importación masiva CSV ─────────────────────────────────────────
 // Columnas admitidas: first_name/nombre, last_name/apellido, dni,
 // year/año, division, specialty/especialidad (o course/curso con el
-// formato "1° 2° Informática"), legajo, email, guardian_email, birth_date.
+// formato "1.º 2.ª Computación"), legajo, email, guardian_email, birth_date.
 // Primero se valida todo; nada se guarda hasta confirmar (dry_run=false).
 
 const CSV_MAX_ROWS = 2000;
@@ -353,16 +354,6 @@ function courseKey(year, division, specialty) {
   return `${Number(year)}|${Number(division)}|${String(specialty).trim().toLowerCase()}`;
 }
 
-function normalizeLabel(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[°º\s]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 const importSchema = z.object({
   csv: z.string().min(1, 'El archivo está vacío.').max(500_000),
   dryRun: z.boolean().optional().default(true),
@@ -379,8 +370,8 @@ router.post('/import', requireAuth, requireCsrf, asyncHandler(async (req, res) =
   const byLabel = new Map();
   for (const course of courses.rows) {
     byKey.set(courseKey(course.year, course.division, course.specialty), course);
-    byLabel.set(normalizeLabel(`${course.year}° ${course.division}° ${course.specialty}`), course);
-    byLabel.set(normalizeLabel(`${course.year} ${course.division} ${course.specialty}`), course);
+    byLabel.set(normalizeCourseLabel(courseLabel(course)), course);
+    byLabel.set(normalizeCourseLabel(`${course.year} ${course.division} ${course.specialty}`), course);
   }
 
   const parsed = [];
@@ -392,8 +383,8 @@ router.post('/import', requireAuth, requireCsrf, asyncHandler(async (req, res) =
     let course = null;
 
     if (data.course) {
-      course = byLabel.get(normalizeLabel(data.course)) || null;
-      if (!course) rowErrors.push('Curso no encontrado (use por ejemplo "1° 2° Informática").');
+      course = byLabel.get(normalizeCourseLabel(data.course)) || null;
+      if (!course) rowErrors.push('Curso no encontrado (use por ejemplo "1.º 2.ª Computación").');
     } else if (data.year && data.division && data.specialty) {
       course = byKey.get(courseKey(data.year, data.division, data.specialty)) || null;
       if (!course) rowErrors.push('No existe un curso activo con ese año, división y especialidad.');

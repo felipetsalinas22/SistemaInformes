@@ -3,6 +3,7 @@ import { query } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { asyncHandler } from '../lib/http.js';
 import { isManager, isDirectivo, isReadonly, isStudent, isTutor } from '../permissions.js';
+import { courseLabel } from '../lib/course-label.js';
 
 const router = Router();
 
@@ -61,7 +62,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       division: Number(row.division),
       specialty: row.specialty,
       shift: row.shift,
-      label: `${row.year}° ${row.division}° ${row.specialty}`
+      label: courseLabel(row)
     })),
     settings: {
       statementDays: Number(settingsMap.statement_days) || 5,
