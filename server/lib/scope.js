@@ -3,7 +3,7 @@
 //  Regla de oro: `scope_all` sólo amplía el ámbito de roles de dirección
 //  y consulta. Nunca de un profesor, preceptor, alumno o tutor.
 // ═══════════════════════════════════════════════════════════════════
-import { hasGlobalScope, isStudent, isTutor } from '../permissions.js';
+import { hasGlobalScope, isPatFunction, isStudent, isTutor, patCourseIds } from '../permissions.js';
 
 /** Ámbito sobre la tabla students (alias configurable). */
 export function addStudentScope(user, params, alias = 's') {
@@ -23,7 +23,10 @@ export function addStudentScope(user, params, alias = 's') {
     return `${alias}.id = ANY($${params.length}::int[])`;
   }
 
-  const courseIds = (user.course_ids || []).map(Number).filter(Boolean);
+  const courseIds = [...new Set([
+    ...(user.course_ids || []).map(Number).filter(Boolean),
+    ...patCourseIds(user)
+  ])];
   if (!courseIds.length) return 'FALSE';
   params.push(courseIds);
   return `${alias}.course_id = ANY($${params.length}::int[])`;
@@ -51,14 +54,19 @@ export function addReportScope(user, params) {
     return `r.student_id = ANY($${params.length}::int[])`;
   }
 
-  // Un profesor ve únicamente lo que él mismo creó.
+  // Un profesor ve lo que él creó y, si tiene la función PAT, los informes
+  // de los cursos asignados para seguimiento (sin permisos de edición).
   if (user.role_code === 'PROFESOR') {
     params.push(user.id);
-    return `r.created_by = $${params.length}`;
+    const creatorClause = `r.created_by = $${params.length}`;
+    if (!isPatFunction(user)) return creatorClause;
+    const patIds = patCourseIds(user);
+    params.push(patIds);
+    return `(${creatorClause} OR r.student_course_id = ANY($${params.length}::int[]))`;
   }
 
-  // Preceptor, PAT y DOE ven los informes del curso en el que fueron
-  // emitidos. Los directivos/consulta ven sus cursos asignados o todo.
+  // Preceptor y DOE ven los informes del curso en el que fueron emitidos.
+  // Los directivos/consulta ven sus cursos asignados o todo.
   const courseIds = (user.course_ids || []).map(Number).filter(Boolean);
   if (!courseIds.length) {
     params.push(user.id);

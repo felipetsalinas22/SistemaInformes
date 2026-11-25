@@ -7,7 +7,7 @@ import { canViewAudit } from '../permissions.js';
 const router = Router();
 
 router.get('/', requireAuth, asyncHandler(async (req, res) => {
-  if (!canViewAudit(req.user)) throw ApiError.forbidden('Sólo un administrador puede consultar la auditoría.');
+  if (!canViewAudit(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede consultar la auditoría.');
   const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
   const params = [];
   const conditions = [];

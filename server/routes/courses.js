@@ -70,7 +70,7 @@ const courseSchema = z.object({
 }).strict();
 
 router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageCourses(req.user)) throw ApiError.forbidden('Sólo un administrador puede crear cursos.');
+  if (!canManageCourses(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede crear cursos.');
   const data = parseBody(courseSchema, req.body);
   try {
     const result = await query(
@@ -89,7 +89,7 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
 }));
 
 router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageCourses(req.user)) throw ApiError.forbidden('Sólo un administrador puede modificar cursos.');
+  if (!canManageCourses(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede modificar cursos.');
   const id = parseId(req.params.id);
   const data = parseBody(courseSchema.partial().extend({ is_active: z.boolean().optional() }).strict(), req.body);
   const columns = { year: 'year', division: 'division', specialty: 'specialty', shift: 'shift', is_active: 'is_active' };
@@ -121,7 +121,7 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
 }));
 
 router.delete('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageCourses(req.user)) throw ApiError.forbidden('Sólo un administrador puede dar de baja cursos.');
+  if (!canManageCourses(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede dar de baja cursos.');
   const id = parseId(req.params.id);
   const students = await query('SELECT count(*)::int AS total FROM students WHERE course_id = $1 AND is_active = TRUE', [id]);
   if (students.rows[0].total > 0) {

@@ -11,6 +11,7 @@ export const ROLES = Object.freeze({
   REGENTE: 'REGENTE',
   SUBREGENTE: 'SUBREGENTE',
   JEFE_TALLER: 'JEFE_TALLER',
+  GERENTE: 'GERENTE',
   PROFESOR: 'PROFESOR',
   PRECEPTOR: 'PRECEPTOR',
   PAT: 'PAT',
@@ -26,8 +27,11 @@ export const DIRECTIVO_ROLES = new Set([
 ]);
 
 export const READONLY_ROLES = new Set([ROLES.SECRETARIA, ROLES.ASESORIA]);
-export const CREATOR_ROLES = new Set([ROLES.ADMIN, ROLES.PROFESOR, ROLES.PRECEPTOR, ...DIRECTIVO_ROLES]);
-export const COURSE_SCOPED_ROLES = new Set([ROLES.PROFESOR, ROLES.PRECEPTOR, ROLES.PAT, ROLES.DOE]);
+export const MANAGER_ROLES = new Set([ROLES.ADMIN, ROLES.GERENTE]);
+export const CREATOR_ROLES = new Set([...MANAGER_ROLES, ROLES.PROFESOR, ROLES.PRECEPTOR, ...DIRECTIVO_ROLES]);
+// PAT ya no es un rol de cuenta: es una función que se asigna a profesores.
+// La constante PAT se conserva sólo para interpretar datos históricos.
+export const COURSE_SCOPED_ROLES = new Set([ROLES.PROFESOR, ROLES.PRECEPTOR, ROLES.DOE]);
 
 export const ALL_FORM_FIELDS = Object.freeze([
   'student_id', 'reason', 'description', 'issue_date',
@@ -71,10 +75,23 @@ const BASE_FIELDS = ['reason', 'description', 'issue_date', 'student_text', 'sta
 const OUTCOME_FIELDS = ['severity', 'other_considerations', 'director_date', 'director_signature_image'];
 
 export function isAdmin(user) { return user?.role_code === ROLES.ADMIN; }
+/** Rol de gestión institucional (Gerente) más el administrador de la demo. */
+export function isManager(user) { return MANAGER_ROLES.has(user?.role_code); }
 export function isDirectivo(user) { return DIRECTIVO_ROLES.has(user?.role_code); }
 export function isReadonly(user) { return READONLY_ROLES.has(user?.role_code); }
 export function isStudent(user) { return user?.role_code === ROLES.ALUMNO; }
 export function isTutor(user) { return user?.role_code === ROLES.TUTOR; }
+
+/** Cursos en los que la persona tiene la función PAT (independiente del rol). */
+export function patCourseIds(user) {
+  return (user?.pat_course_ids || user?.patCourseIds || []).map(Number).filter(Boolean);
+}
+export function isPatFunction(user) { return patCourseIds(user).length > 0; }
+export function hasPatCourseScope(user, courseId) {
+  if (courseId === null || courseId === undefined) return false;
+  return patCourseIds(user).includes(Number(courseId));
+}
+
 export function isStaff(user) {
   return Boolean(user) && !isStudent(user) && !isTutor(user);
 }
@@ -85,7 +102,7 @@ export function isStaff(user) {
  */
 export function hasGlobalScope(user) {
   if (!user) return false;
-  if (isAdmin(user)) return true;
+  if (isManager(user)) return true;
   return Boolean(user.scope_all) && (isDirectivo(user) || isReadonly(user));
 }
 
@@ -101,23 +118,26 @@ export function canCreateReports(user) {
   if (!user || !user.is_active) return false;
   if (isStudent(user) || isTutor(user) || isReadonly(user)) return false;
   if (!CREATOR_ROLES.has(user.role_code)) return false;
-  if (isAdmin(user) || isDirectivo(user)) return true;
+  if (isManager(user) || isDirectivo(user)) return true;
   return (user.course_ids || []).length > 0;
 }
 
 export function canViewReport(user, report) {
   if (!user || !report) return false;
-  if (isAdmin(user)) return true;
+  if (isManager(user)) return true;
   if (isStudent(user)) return Number(report.student_id) === Number(user.student_id);
   if (isTutor(user)) return (user.tutor_student_ids || []).map(Number).includes(Number(report.student_id));
   if (String(report.created_by) === String(user.id)) return true;
 
   const historicalCourse = report.student_course_id ?? report.course_id;
   if (isDirectivo(user) || isReadonly(user)) return hasCourseScope(user, historicalCourse);
-  if ([ROLES.PRECEPTOR, ROLES.PAT, ROLES.DOE].includes(user.role_code)) {
+  // Un docente con función PAT consulta los informes de los cursos asignados
+  // para seguimiento, conservando además el acceso a los informes que creó.
+  if (isPatFunction(user) && hasPatCourseScope(user, historicalCourse)) return true;
+  if ([ROLES.PRECEPTOR, ROLES.DOE].includes(user.role_code)) {
     return hasCourseScope(user, historicalCourse);
   }
-  // Un profesor sólo ve los informes que él creó.
+  // Un profesor sin función PAT sólo ve los informes que él creó.
   return false;
 }
 
@@ -129,6 +149,7 @@ export function canAccessStudent(user, student) {
   if (COURSE_SCOPED_ROLES.has(user.role_code) || isDirectivo(user) || isReadonly(user)) {
     return hasCourseScope(user, student.course_id);
   }
+  if (isPatFunction(user) && hasPatCourseScope(user, student.course_id)) return true;
   return false;
 }
 
@@ -156,6 +177,22 @@ export function statementIsOpen(user, report, now = new Date()) {
   if (report.statement_submitted_at) return false;
   if (!report.statement_deadline) return false;
   return new Date(report.statement_deadline).getTime() >= now.getTime();
+}
+
+/**
+ * Estado del plazo de descargo, calculado siempre en el servidor para que
+ * funcione aunque la sesión esté cerrada. Se usa para filtros e indicadores.
+ */
+export function statementState(report, now = new Date(), warningHours = 24) {
+  if (!report) return 'sin_plazo';
+  if (report.statement_submitted_at) return 'completado';
+  if (!report.statement_deadline || report.status !== 'Pendiente' || report.stage !== 'descargo') return 'cerrado';
+  const deadline = new Date(report.statement_deadline).getTime();
+  if (!Number.isFinite(deadline)) return 'sin_plazo';
+  const diff = deadline - now.getTime();
+  if (diff < 0) return 'vencido';
+  if (diff <= Number(warningHours) * 60 * 60 * 1000) return 'proximo';
+  return 'pendiente';
 }
 
 /**
@@ -187,11 +224,14 @@ export function editableFields(user, report) {
     if (['descargo', 'consejos'].includes(report.stage)) editable.add('preceptor_notes');
   }
 
-  if ([ROLES.PAT, ROLES.DOE].includes(user.role_code) && hasCourseScope(user, report.student_course_id ?? report.course_id)) {
+  // La función PAT es de consulta: nunca habilita edición. El campo PAT lo
+  // completan las autoridades (o DOE) como parte de la etapa de consejos.
+  if (user.role_code === ROLES.DOE && hasCourseScope(user, report.student_course_id ?? report.course_id)) {
     if (['descargo', 'consejos'].includes(report.stage)) editable.add('pat_notes');
   }
 
   if (isDirectivo(user) && hasCourseScope(user, report.student_course_id ?? report.course_id)) {
+    editable.add('pat_notes');
     editable.add('council_notes');
     editable.add('additional_notes');
     editable.add('severity');
@@ -230,11 +270,12 @@ export function canViewReportHistory(user) {
   return isStaff(user);
 }
 
-export function canViewAudit(user) { return isAdmin(user); }
-export function canManageUsers(user) { return isAdmin(user); }
-export function canManageCourses(user) { return isAdmin(user); }
-export function canManageStudents(user) { return isAdmin(user); }
-export function canManageSettings(user) { return isAdmin(user); }
+export function canViewAudit(user) { return isManager(user); }
+export function canManageUsers(user) { return isManager(user); }
+export function canManageCourses(user) { return isManager(user); }
+export function canManageStudents(user) { return isManager(user); }
+export function canManageSettings(user) { return isManager(user); }
+export function canManagePatFunctions(user) { return isManager(user); }
 
 export function canViewNotificationsModule(user) {
   // El endpoint filtra siempre por recipient_user_id: cada cuenta ve sólo
@@ -248,6 +289,9 @@ export function buildPermissions(user) {
     manageCourses: canManageCourses(user),
     manageStudents: canManageStudents(user),
     manageSettings: canManageSettings(user),
+    managePatFunctions: canManagePatFunctions(user),
+    manager: isManager(user),
+    patFunction: isPatFunction(user),
     viewAudit: canViewAudit(user),
     viewNotifications: canViewNotificationsModule(user),
     createReports: canCreateReports(user),

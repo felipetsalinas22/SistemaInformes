@@ -1,34 +1,30 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════
-//  Datos de demostración con la nómina restaurada del index.html original.
-//  Los informes y cuentas siguen siendo de demostración.
+//  Seed demostrativo ADITIVO E IDEMPOTENTE.
+//  - Nunca borra registros existentes salvo que se ejecute --reset.
+//  - Cada inserción se protege por conflictos naturales (DNI, mail,
+//    legajo vinculado) o por seed_registry (informes).
+//  - Todas las cuentas nuevas usan la contraseña inicial "123".
 //  Uso:
-//    npm run db:seed           (sólo si la base no tiene usuarios)
-//    npm run db:reset          (borra y vuelve a crear los datos demo)
+//    node server/scripts/seed.js            amplía la base actual
+//    node server/scripts/seed.js --reset    reconstruye la demo completa
 // ═══════════════════════════════════════════════════════════════════
 import { pool, closePool } from '../db.js';
 import { hashPassword } from '../lib/password.js';
+import {
+  notifyReportCreated, notifyStatementSubmitted, notifyDictamen
+} from '../lib/notifications.js';
 
 const RESET = process.argv.includes('--reset');
 const FORCE = process.argv.includes('--force');
+const INITIAL_PASSWORD = '123';
 
 if (process.env.NODE_ENV === 'production' && !FORCE) {
   console.error('✗ No se ejecuta el seed en producción sin --force. Use server/scripts/create-admin.js.');
   process.exit(1);
 }
 
-const ACCOUNTS = [
-  { key: 'admin', email: 'admin@et35.demo', password: 'Admin.2026!', name: 'Administrador Demo', role: 'ADMINISTRADOR' },
-  { key: 'profesor', email: 'profesor@et35.demo', password: 'Profesor.2026!', name: 'Profesor Demo', role: 'PROFESOR', courses: [0] },
-  { key: 'preceptor', email: 'preceptor@et35.demo', password: 'Preceptor.2026!', name: 'Preceptor Demo', role: 'PRECEPTOR', courses: [0] },
-  { key: 'pat', email: 'pat@et35.demo', password: 'Pat.2026!', name: 'Equipo PAT Demo', role: 'PAT', courses: [0] },
-  { key: 'regente', email: 'regente@et35.demo', password: 'Regente.2026!', name: 'Regente Demo', role: 'REGENTE', scopeAll: true },
-  { key: 'rector', email: 'rector@et35.demo', password: 'Rector.2026!', name: 'Rector Demo', role: 'RECTOR', scopeAll: true },
-  { key: 'secretaria', email: 'secretaria@et35.demo', password: 'Secretaria.2026!', name: 'Secretaría Demo', role: 'SECRETARIA', scopeAll: true },
-  { key: 'alumno', email: 'alumno@et35.demo', password: 'Alumno.2026!', name: 'Guinsburg Mateo', role: 'ALUMNO', studentIndex: 17 },
-  { key: 'tutor', email: 'tutor@et35.demo', password: 'Tutor.2026!', name: 'Familia Guinsburg (demo)', role: 'TUTOR', tutorStudents: [17] }
-];
-
+// Los primeros 7 cursos conservan el orden histórico del seed original.
 const COURSES = [
   { year: 6, division: 2, specialty: 'Computación', shift: 'Tarde' },
   { year: 1, division: 1, specialty: 'Informática', shift: 'Mañana' },
@@ -36,334 +32,500 @@ const COURSES = [
   { year: 2, division: 2, specialty: 'Electrónica', shift: 'Tarde' },
   { year: 3, division: 1, specialty: 'Electrónica', shift: 'Tarde' },
   { year: 4, division: 1, specialty: 'Química', shift: 'Mañana' },
-  { year: 5, division: 1, specialty: 'Construcciones', shift: 'Tarde' }
+  { year: 5, division: 1, specialty: 'Construcciones', shift: 'Tarde' },
+  { year: 1, division: 2, specialty: 'Ciclo Básico', shift: 'Tarde' },
+  { year: 1, division: 3, specialty: 'Ciclo Básico', shift: 'Mañana' },
+  { year: 2, division: 3, specialty: 'Ciclo Básico', shift: 'Tarde' },
+  { year: 3, division: 2, specialty: 'Ciclo Básico', shift: 'Mañana' },
+  { year: 3, division: 3, specialty: 'Ciclo Básico', shift: 'Tarde' },
+  { year: 4, division: 2, specialty: 'Electrónica', shift: 'Mañana' },
+  { year: 4, division: 3, specialty: 'Química', shift: 'Tarde' },
+  { year: 5, division: 2, specialty: 'Construcciones', shift: 'Mañana' },
+  { year: 5, division: 3, specialty: 'Construcciones', shift: 'Tarde' },
+  { year: 6, division: 1, specialty: 'Computación', shift: 'Mañana' },
+  { year: 6, division: 3, specialty: 'Computación', shift: 'Tarde' }
 ];
 
-// Nómina restaurada del archivo original. El orden de visualización se
-// conserva tal como estaba: la interfaz une first_name + last_name.
-// Los informes asociados son de demostración.
-const STUDENTS = [
-  { first: 'Agustina', last: 'Miranda', dni: '46234001', legajo: null, course: 0, email: 'amiranda@bue.edu.ar', guardian: 'tutor_miranda@gmail.com' },
-  { first: 'Andacaba', last: 'Madai', dni: '46234002', legajo: null, course: 0, email: 'amadai@bue.edu.ar', guardian: 'tutor_madai@gmail.com' },
-  { first: 'Angulo', last: 'Brunetti Alejo Nahuel', dni: '46234003', legajo: null, course: 0, email: 'aangulo@bue.edu.ar', guardian: 'tutor_angulo@gmail.com' },
-  { first: 'Apicella', last: 'Nazareno', dni: '46234004', legajo: null, course: 0, email: 'napicella@bue.edu.ar', guardian: 'tutor_apicella@gmail.com' },
-  { first: 'Barreira', last: 'Joaquín', dni: '46234005', legajo: null, course: 0, email: 'jbarreira@bue.edu.ar', guardian: 'tutor_barreira@gmail.com' },
-  { first: 'Bartero', last: 'Lautaro', dni: '46234006', legajo: null, course: 0, email: 'lbartero@bue.edu.ar', guardian: 'tutor_bartero@gmail.com' },
-  { first: 'Belay', last: 'Piedrabuena Martin', dni: '46234007', legajo: null, course: 0, email: 'mbelay@bue.edu.ar', guardian: 'tutor_belay@gmail.com' },
-  { first: 'Choquehuanca', last: 'Marco Antonio', dni: '46234008', legajo: null, course: 0, email: 'mchoquehuanca@bue.edu.ar', guardian: 'tutor_choquehuanca@gmail.com' },
-  { first: 'Crespo', last: 'Santino', dni: '46234009', legajo: null, course: 0, email: 'screspo@bue.edu.ar', guardian: 'tutor_crespo@gmail.com' },
-  { first: 'Dominguez', last: 'Gamarra Victoria Azul', dni: '46234010', legajo: null, course: 0, email: 'vdominguez@bue.edu.ar', guardian: 'tutor_dominguez@gmail.com' },
-  { first: 'Enrique', last: 'Diaz Santino Adrian', dni: '46234011', legajo: null, course: 0, email: 'senrique@bue.edu.ar', guardian: 'tutor_enrique@gmail.com' },
-  { first: 'Escalante', last: 'Adrian', dni: '46234012', legajo: null, course: 0, email: 'aescalante@bue.edu.ar', guardian: 'tutor_escalante@gmail.com' },
-  { first: 'Espinoza', last: 'Tiziano', dni: '46234013', legajo: null, course: 0, email: 'tespinoza@bue.edu.ar', guardian: 'tutor_espinoza@gmail.com' },
-  { first: 'Estrada', last: 'Candiano Jeriel', dni: '46234014', legajo: null, course: 0, email: 'jestrada@bue.edu.ar', guardian: 'tutor_estrada@gmail.com' },
-  { first: 'Galíndez', last: 'Sofía Emma', dni: '46234015', legajo: null, course: 0, email: 'sgalindez@bue.edu.ar', guardian: 'tutor_galindez@gmail.com' },
-  { first: 'Galván', last: 'Luana', dni: '46234016', legajo: null, course: 0, email: 'lgalvan@bue.edu.ar', guardian: 'tutor_galvan@gmail.com' },
-  { first: 'Goncalves', last: 'Guerreiro Luna Morena', dni: '46234017', legajo: null, course: 0, email: 'lgoncalves@bue.edu.ar', guardian: 'tutor_goncalves@gmail.com' },
-  { first: 'Guinsburg', last: 'Mateo', dni: '46234018', legajo: null, course: 0, email: 'mguinsburg@bue.edu.ar', guardian: 'tutor_guinsburg@gmail.com' },
-  { first: 'Hung', last: 'Nicolás', dni: '46234019', legajo: null, course: 0, email: 'nhung@bue.edu.ar', guardian: 'tutor_hung@gmail.com' },
-  { first: 'Iannopollo', last: 'Angeline', dni: '46234020', legajo: null, course: 0, email: 'aiannopollo@bue.edu.ar', guardian: 'tutor_iannopollo@gmail.com' },
-  { first: 'Igarzabal', last: 'Felipe', dni: '46234021', legajo: null, course: 0, email: 'figarzabal@bue.edu.ar', guardian: 'tutor_igarzabal@gmail.com' },
-  { first: 'Manteiga', last: 'Agustín', dni: '46234022', legajo: null, course: 0, email: 'amanteiga@bue.edu.ar', guardian: 'tutor_manteiga@gmail.com' },
-  { first: 'Marquez', last: 'Cristhian', dni: '46234023', legajo: null, course: 0, email: 'cmarquez@bue.edu.ar', guardian: 'tutor_marquez@gmail.com' },
-  { first: 'Mateo', last: 'Juárez Giliberti', dni: '46234024', legajo: null, course: 0, email: 'mjuarez@bue.edu.ar', guardian: 'tutor_juarez@gmail.com' },
-  { first: 'Mayz', last: 'Valeria', dni: '46234025', legajo: null, course: 0, email: 'vmayz@bue.edu.ar', guardian: 'tutor_mayz@gmail.com' },
-  { first: 'Mihovilcevic', last: 'Mirko', dni: '46234026', legajo: null, course: 0, email: 'mmihovilcevic@bue.edu.ar', guardian: 'tutor_mihovilcevic@gmail.com' },
-  { first: 'Miranda', last: 'Tobías Andres', dni: '46234027', legajo: null, course: 0, email: 'tmiranda@bue.edu.ar', guardian: 'tutor_miranda2@gmail.com' },
-  { first: 'Morelli', last: 'Uziel', dni: '46234028', legajo: null, course: 0, email: 'umorelli@bue.edu.ar', guardian: 'tutor_morelli@gmail.com' },
-  { first: 'Muzzi', last: 'Joaquín', dni: '46234029', legajo: null, course: 0, email: 'jmuzzi@bue.edu.ar', guardian: 'tutor_muzzi@gmail.com' },
-  { first: 'Navarro', last: 'Patricio', dni: '46234030', legajo: null, course: 0, email: 'pnavarro@bue.edu.ar', guardian: 'tutor_navarro@gmail.com' },
-  { first: 'Piñero', last: 'Natanael', dni: '46234031', legajo: null, course: 0, email: 'npinero@bue.edu.ar', guardian: 'tutor_pinero@gmail.com' },
-  { first: 'Portaluppi', last: 'Santino', dni: '46234032', legajo: null, course: 0, email: 'sportaluppi@bue.edu.ar', guardian: 'tutor_portaluppi@gmail.com' },
-  { first: 'Kohler', last: 'Ramiro', dni: '46234033', legajo: null, course: 0, email: 'rkohler@bue.edu.ar', guardian: 'tutor_kohler@gmail.com' },
-  { first: 'Rodrigues', last: 'Joaquín', dni: '46234034', legajo: null, course: 0, email: 'jrodrigues@bue.edu.ar', guardian: 'tutor_rodrigues@gmail.com' },
-  { first: 'Rodriguez', last: 'Navarro Juan Alfonso', dni: '46234035', legajo: null, course: 0, email: 'jrodriguez@bue.edu.ar', guardian: 'tutor_rodriguez@gmail.com' },
-  { first: 'Salinas', last: 'Felipe', dni: '46234036', legajo: null, course: 0, email: 'fsalinas@bue.edu.ar', guardian: 'tutor_salinas@gmail.com' },
-  { first: 'Seiberth', last: 'Valentin', dni: '46234037', legajo: null, course: 0, email: 'vseiberth@bue.edu.ar', guardian: 'tutor_seiberth@gmail.com' },
-  { first: 'Siñani', last: 'Matias', dni: '46234038', legajo: null, course: 0, email: 'msinani@bue.edu.ar', guardian: 'tutor_sinani@gmail.com' },
-  { first: 'Valentin', last: 'Zamira', dni: '46234039', legajo: null, course: 0, email: 'zvalentin@bue.edu.ar', guardian: 'tutor_valentin@gmail.com' },
-  { first: 'Vivacqua', last: 'Antonella', dni: '46234040', legajo: null, course: 0, email: 'avivacqua@bue.edu.ar', guardian: 'tutor_vivacqua@gmail.com' },
-  { first: 'Yavi', last: 'Perez Kevin Lucas', dni: '46234041', legajo: null, course: 0, email: 'kyavi@bue.edu.ar', guardian: 'tutor_yavi@gmail.com' }
+// Nómina histórica restaurada del proyecto original (se mantiene en --reset).
+const LEGACY_STUDENTS = [
+  ['Agustina', 'Miranda'], ['Andacaba', 'Madai'], ['Angulo', 'Brunetti Alejo Nahuel'],
+  ['Apicella', 'Nazareno'], ['Barreira', 'Joaquín'], ['Bartero', 'Lautaro'],
+  ['Belay', 'Piedrabuena Martin'], ['Choquehuanca', 'Marco Antonio'], ['Crespo', 'Santino'],
+  ['Dominguez', 'Gamarra Victoria Azul'], ['Enrique', 'Diaz Santino Adrian'],
+  ['Escalante', 'Adrian'], ['Espinoza', 'Tiziano'], ['Estrada', 'Candiano Jeriel'],
+  ['Galíndez', 'Sofía Emma'], ['Galván', 'Luana'], ['Goncalves', 'Guerreiro Luna Morena'],
+  ['Guinsburg', 'Mateo'], ['Hung', 'Nicolás'], ['Iannopollo', 'Angeline'],
+  ['Igarzabal', 'Felipe'], ['Manteiga', 'Agustín'], ['Marquez', 'Cristhian'],
+  ['Mateo', 'Juárez Giliberti'], ['Mayz', 'Valeria'], ['Mihovilcevic', 'Mirko'],
+  ['Miranda', 'Tobías Andres'], ['Morelli', 'Uziel'], ['Muzzi', 'Joaquín'],
+  ['Navarro', 'Patricio'], ['Piñero', 'Natanael'], ['Portaluppi', 'Santino'],
+  ['Kohler', 'Ramiro'], ['Rodrigues', 'Joaquín'], ['Rodriguez', 'Navarro Juan Alfonso'],
+  ['Salinas', 'Felipe'], ['Seiberth', 'Valentin'], ['Siñani', 'Matias'],
+  ['Valentin', 'Zamira'], ['Vivacqua', 'Antonella'], ['Yavi', 'Perez Kevin Lucas']
+].map(([first, last], index) => ({ first, last, dni: String(46234001 + index), course: 0 }));
+
+// Cuentas históricas: se conservan con sus contraseñas para no romper accesos.
+const LEGACY_ACCOUNTS = [
+  { key: 'admin', email: 'admin@et35.demo', password: 'Admin.2026!', name: 'Administrador Demo', role: 'ADMINISTRADOR' },
+  { key: 'profesor', email: 'profesor@et35.demo', password: 'Profesor.2026!', name: 'Profesor Demo', role: 'PROFESOR', courses: [0] },
+  { key: 'preceptor', email: 'preceptor@et35.demo', password: 'Preceptor.2026!', name: 'Preceptor Demo', role: 'PRECEPTOR', courses: [0] },
+  { key: 'pat', email: 'pat@et35.demo', password: 'Pat.2026!', name: 'Equipo PAT Demo', role: 'PROFESOR', courses: [0], patCourses: [0] },
+  { key: 'regente', email: 'regente@et35.demo', password: 'Regente.2026!', name: 'Regente Demo', role: 'REGENTE', scopeAll: true },
+  { key: 'rector', email: 'rector@et35.demo', password: 'Rector.2026!', name: 'Rector Demo', role: 'RECTOR', scopeAll: true },
+  { key: 'secretaria', email: 'secretaria@et35.demo', password: 'Secretaria.2026!', name: 'Secretaría Demo', role: 'SECRETARIA', scopeAll: true },
+  { key: 'alumno', email: 'alumno@et35.demo', password: 'Alumno.2026!', name: 'Guinsburg Mateo', role: 'ALUMNO', studentDni: '46234018' },
+  { key: 'tutor', email: 'tutor@et35.demo', password: 'Tutor.2026!', name: 'Familia Guinsburg (demo)', role: 'TUTOR', tutorDnis: ['46234018'] }
 ];
+
+const FIRST_NAMES = [
+  'Agustina', 'Facundo', 'Camila', 'Lautaro', 'Sofía', 'Matías', 'Valentina', 'Santiago',
+  'Julieta', 'Martina', 'Nicolás', 'Lucía', 'Tomás', 'Evelyn', 'Bruno', 'Ailen',
+  'Ezequiel', 'Fiorella', 'Gabriel', 'Hernán', 'Isabel', 'Joaquín', 'Karina', 'Luis',
+  'Mariana', 'Nahuel', 'Oriana', 'Paolo', 'Quimey', 'Ramiro', 'Soledad', 'Tiago',
+  'Verónica', 'Wesley', 'Yamila', 'Zoe', 'Bautista', 'Candela', 'Dante', 'Emilia'
+];
+
+const LAST_NAMES = [
+  'Aguirre', 'Benítez', 'Cabrera', 'Díaz', 'Espinoza', 'Fernández', 'Gómez', 'Herrera',
+  'Ibarra', 'Juárez', 'Kowalski', 'López', 'Martínez', 'Navarro', 'Ortiz', 'Pereyra',
+  'Quiroga', 'Ramírez', 'Sosa', 'Torres', 'Urrutia', 'Vargas', 'Wagner', 'Ybarra',
+  'Zamora', 'Acosta', 'Bustos', 'Córdoba', 'Delgado', 'Enriquez', 'Flores', 'García',
+  'Haedo', 'Insaurralde', 'Jiménez', 'Luna', 'Mendoza', 'Núñez', 'Ocampo', 'Paz'
+];
+
+const TEACHERS = [
+  { name: 'Laura Gómez', subject: 'Matemática', courses: [0, 8, 11], pat: true },
+  { name: 'Diego Fernández', subject: 'Lengua y Literatura', courses: [0, 7, 10], pat: false },
+  { name: 'Ana Martínez', subject: 'Física', courses: [4, 12, 16], pat: false },
+  { name: 'Sergio Ramírez', subject: 'Química', courses: [5, 13, 6], pat: true },
+  { name: 'Claudia Navarro', subject: 'Historia', courses: [1, 9, 10], pat: false },
+  { name: 'Martín López', subject: 'Geografía', courses: [2, 8, 11], pat: false },
+  { name: 'Paula Herrera', subject: 'Inglés', courses: [0, 3, 16], pat: true },
+  { name: 'Gabriel Torres', subject: 'Educación Física', courses: [7, 9, 14], pat: false },
+  { name: 'Natalia Acosta', subject: 'Computación', courses: [0, 16, 17], pat: false },
+  { name: 'Federico Sosa', subject: 'Electrónica', courses: [3, 4, 12], pat: true },
+  { name: 'Valeria Díaz', subject: 'Construcciones', courses: [6, 14, 15], pat: false },
+  { name: 'Hernán Vargas', subject: 'Taller de Proyecto', courses: [16, 17, 12], pat: false },
+  { name: 'Mariana Benítez', subject: 'Formación Ética', courses: [1, 2, 7], pat: false },
+  { name: 'Pablo Cabrera', subject: 'Arte y Diseño', courses: [8, 10, 11], pat: false },
+  { name: 'Silvia Pereyra', subject: 'Matemática', courses: [2, 9, 13], pat: false },
+  { name: 'Andrés Quiroga', subject: 'Lengua y Literatura', courses: [3, 12, 15], pat: false },
+  { name: 'Gisella Luna', subject: 'Inglés Técnico', courses: [5, 13, 17], pat: false },
+  { name: 'Marcelo Ortiz', subject: 'Física Aplicada', courses: [4, 14, 15], pat: false },
+  { name: 'Romina Flores', subject: 'Computación', courses: [7, 8, 9], pat: false },
+  { name: 'Emiliano Haedo', subject: 'Electrónica', courses: [3, 12, 17], pat: false },
+  { name: 'Verónica Jiménez', subject: 'Historia Argentina', courses: [5, 6, 13], pat: false },
+  { name: 'Cristian Mendoza', subject: 'Deportes', courses: [0, 1, 2], pat: false },
+  { name: 'Jorgelina Paz', subject: 'Construcciones', courses: [6, 14, 15], pat: false },
+  { name: 'Alejandro Bustos', subject: 'Formación Laboral', courses: [10, 11, 16], pat: false }
+];
+
+const STAFF = [
+  { email: 'rector@latzina.edu.ar', name: 'Rectorado ET35', role: 'RECTOR', scopeAll: true },
+  { email: 'vicerrector@latzina.edu.ar', name: 'Vicerrectoría ET35', role: 'VICERRECTOR', scopeAll: true },
+  { email: 'regente@latzina.edu.ar', name: 'Regencia ET35', role: 'REGENTE', scopeAll: true },
+  { email: 'subregente@latzina.edu.ar', name: 'Subregencia ET35', role: 'SUBREGENTE', scopeAll: true },
+  { email: 'jefetaller@latzina.edu.ar', name: 'Jefatura de Taller', role: 'JEFE_TALLER', scopeAll: true },
+  { email: 'gerente@latzina.edu.ar', name: 'Gerencia institucional', role: 'GERENTE', scopeAll: true },
+  { email: 'preceptoria@latzina.edu.ar', name: 'Preceptoría ET35', role: 'PRECEPTOR', courses: [0, 7, 8, 9, 10, 11] },
+  { email: 'secretaria@latzina.edu.ar', name: 'Secretaría ET35', role: 'SECRETARIA', scopeAll: true },
+  { email: 'orientacion@latzina.edu.ar', name: 'Orientación y Bienestar (DOE)', role: 'DOE', courses: [0, 3, 4, 12, 16] },
+  { email: 'admin@latzina.edu.ar', name: 'Administrador', role: 'ADMINISTRADOR' }
+];
+
+const REASONS = [
+  'Interrupción reiterada durante la clase',
+  'Uso de dispositivo móvil en horario de taller',
+  'Llegada tardía sin justificación',
+  'Falta de respeto hacia un compañero',
+  'No entrega de trabajo práctico',
+  'Daño a materiales del taller',
+  'Abandono del aula sin autorización',
+  'Ruido y disturbios en el aula',
+  'Negativa a cumplir una consigna de seguridad',
+  'Conflicto entre compañeros en el recreo'
+];
+
+const DESCRIPTIONS = [
+  'Se registró la situación durante la jornada escolar y se dio intervención inmediata a preceptoría. Los hechos se describen sin incluir datos sensibles ajenos al procedimiento.',
+  'El hecho se observó en dos oportunidades dentro de la misma semana. Se conversó con el alumno y se labró el registro correspondiente según el protocolo institucional.',
+  'Se solicitó por escrito la justificación correspondiente y no se recibió respuesta dentro del plazo informado. Se notificó a la familia por los canales habituales.',
+  'La situación fue presenciada por el docente a cargo y por otros compañeros. Se priorizó el resguardo del clima de convivencia y se derivó el caso a orientación.',
+  'Si bien se realizó la advertencia previa, no se presentó la actividad en la fecha acordada. Se dejó constancia en el legajo de seguimiento.'
+];
+
+const SIGNATURE_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+function slug(value) {
+  return String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+    .trim().replace(/\s+/g, '.');
+}
 
 function daysFromNow(days) {
-  return new Date(Date.now() + days * 86400000).toISOString();
+  const date = new Date(Date.now() + days * 86400000);
+  date.setHours(23, 59, 0, 0);
+  return date.toISOString();
+}
+
+function daysAgo(days) {
+  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 }
 
 async function main() {
   const client = await pool.connect();
   try {
-    const userCount = await client.query('SELECT count(*)::int AS total FROM users');
-    if (userCount.rows[0].total > 0 && !RESET) {
-      console.error('✗ La base ya tiene usuarios. Ejecute "npm run db:reset" para recrear los datos de demostración.');
-      process.exitCode = 1;
-      return;
-    }
-
     await client.query('BEGIN');
 
     if (RESET) {
       await client.query(`
         TRUNCATE report_history, notifications, audit_log, sessions, reports,
-                 tutor_students, user_courses, users, students, courses
+                 pat_assignments, tutor_students, user_courses, users, students,
+                 courses, seed_registry
         RESTART IDENTITY CASCADE
       `);
-      console.log('• Datos anteriores eliminados.');
+      console.log('• Datos anteriores eliminados (--reset).');
     }
 
     const roleRows = await client.query('SELECT id, code FROM roles');
     const roleIds = Object.fromEntries(roleRows.rows.map(row => [row.code, row.id]));
+    if (!roleIds.PROFESOR || !roleIds.ADMINISTRADOR) {
+      throw new Error('Faltan roles base. Ejecute primero npm run db:migrate.');
+    }
 
+    // ── Cursos ────────────────────────────────────────────────────
     const courseIds = [];
     for (const course of COURSES) {
       const result = await client.query(
         `INSERT INTO courses (year, division, specialty, shift) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (year, division, specialty) DO UPDATE SET shift = EXCLUDED.shift, is_active = TRUE
+         ON CONFLICT (year, division, specialty)
+         DO UPDATE SET shift = EXCLUDED.shift, is_active = TRUE
          RETURNING id`,
         [course.year, course.division, course.specialty, course.shift]
       );
       courseIds.push(result.rows[0].id);
     }
-    console.log(`• ${courseIds.length} cursos creados.`);
+    console.log(`• Cursos disponibles: ${courseIds.length} (1.° a 6.°, divisiones 1.° a 3.°).`);
 
-    const studentIds = [];
-    for (let index = 0; index < STUDENTS.length; index += 1) {
-      const student = STUDENTS[index];
+    // ── Alumnos ───────────────────────────────────────────────────
+    const existingStudents = await client.query('SELECT id, dni, first_name, last_name, course_id, email FROM students');
+    const dniSet = new Set(existingStudents.rows.map(row => row.dni));
+    const usedEmails = new Set();
+
+    async function ensureStudent(first, last, dni, courseIndex, birth) {
+      const base = `${slug(first)}.${slug(String(last).split(' ')[0])}`;
+      let email = `${base}@latzina.edu.ar`;
+      let suffix = 2;
+      while (usedEmails.has(email.toLowerCase())) {
+        email = `${base}.${suffix}@latzina.edu.ar`;
+        suffix += 1;
+      }
+      usedEmails.add(email.toLowerCase());
+      const guardian = `familia.${slug(String(last).split(' ')[0])}@latzina.edu.ar`;
+
       const result = await client.query(
         `INSERT INTO students (first_name, last_name, dni, legajo, course_id, email, guardian_email, birth_date)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id`,
-        [
-          student.first, student.last, student.dni, student.legajo, courseIds[student.course],
-          student.email, student.guardian, student.birth || null
-        ]
+         ON CONFLICT (dni) DO UPDATE
+           SET course_id = COALESCE(students.course_id, EXCLUDED.course_id),
+               email = CASE WHEN students.email IS NULL OR students.email NOT LIKE '%@latzina.edu.ar%'
+                            THEN EXCLUDED.email ELSE students.email END,
+               guardian_email = COALESCE(students.guardian_email, EXCLUDED.guardian_email)
+         RETURNING id, first_name, last_name, dni, course_id, email`,
+        [first, last, dni, `LEG-${dni}`, courseIds[courseIndex], email, guardian, birth || null]
       );
-      studentIds.push(result.rows[0].id);
+      const row = result.rows[0];
+      usedEmails.add(row.email.toLowerCase());
+      return row;
     }
-    console.log(`• ${studentIds.length} alumnos de la nómina original restaurados.`);
 
+    if (RESET) {
+      for (const student of LEGACY_STUDENTS) {
+        await ensureStudent(student.first, student.last, student.dni, student.course);
+      }
+    }
+
+    // Nómina ampliada: 5 alumnos por curso nuevo + rotación en los históricos.
+    const targetCourses = COURSES.map((_, index) => index);
+    let addedStudents = 0;
+    for (let index = 0; index < 95; index += 1) {
+      const dni = String(46234042 + index);
+      // Si el legajo ya existe, se omite: el seed es aditivo, no duplica.
+      if (dniSet.has(dni)) continue;
+      dniSet.add(dni);
+      const first = FIRST_NAMES[index % FIRST_NAMES.length];
+      const last = LAST_NAMES[(index * 13 + 5) % LAST_NAMES.length];
+      const courseIndex = targetCourses[index % targetCourses.length];
+      await ensureStudent(first, last, dni, courseIndex, `2010-${String((index % 12) + 1).padStart(2, '0')}-15`);
+      addedStudents += 1;
+    }
+
+    const studentRows = (await client.query(
+      `SELECT s.id, s.first_name, s.last_name, s.dni, s.course_id, s.email, s.legajo,
+              c.year, c.division, c.specialty, c.shift
+       FROM students s JOIN courses c ON c.id = s.course_id ORDER BY s.id`
+    )).rows;
+    const studentByDni = new Map(studentRows.map(row => [row.dni, row]));
+    const studentsByCourse = new Map();
+    for (const row of studentRows) {
+      if (!studentsByCourse.has(row.course_id)) studentsByCourse.set(row.course_id, []);
+      studentsByCourse.get(row.course_id).push(row);
+    }
+    console.log(`• Alumnos totals: ${studentRows.length} (${addedStudents} nuevos en esta ejecución).`);
+
+    // ── Cuentas ───────────────────────────────────────────────────
     const userIds = {};
-    for (const account of ACCOUNTS) {
-      const hash = await hashPassword(account.password);
+
+    async function ensureUser({ email, password, name, roleCode, studentId = null, scopeAll = false, mustChange = false }) {
+      const found = await client.query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
+      if (found.rows[0]) {
+        userIds[email] = found.rows[0].id;
+        return found.rows[0].id;
+      }
+      const hash = await hashPassword(password);
       const inserted = await client.query(
         `INSERT INTO users (email, password_hash, full_name, role_id, student_id, scope_all,
                             is_active, must_change_password, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, TRUE, FALSE, NULL)
+         VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, NULL)
          RETURNING id`,
-        [
-          account.email, hash, account.name, roleIds[account.role],
-          account.studentIndex !== undefined ? studentIds[account.studentIndex] : null,
-          Boolean(account.scopeAll)
-        ]
+        [email, hash, name, roleIds[roleCode], studentId, Boolean(scopeAll), Boolean(mustChange)]
       );
-      userIds[account.key] = inserted.rows[0].id;
+      userIds[email] = inserted.rows[0].id;
+      return inserted.rows[0].id;
+    }
 
-      for (const courseIndex of account.courses || []) {
+    async function setCourses(userId, courseIndexes) {
+      for (const index of courseIndexes || []) {
         await client.query(
           'INSERT INTO user_courses (user_id, course_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [inserted.rows[0].id, courseIds[courseIndex]]
-        );
-      }
-      for (const studentIndex of account.tutorStudents || []) {
-        await client.query(
-          'INSERT INTO tutor_students (tutor_user_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [inserted.rows[0].id, studentIds[studentIndex]]
+          [userId, courseIds[index]]
         );
       }
     }
-    console.log(`• ${ACCOUNTS.length} cuentas demo creadas.`);
 
-    async function createReport(data) {
-      const student = STUDENTS[data.studentIndex];
-      const course = COURSES[student.course];
-      const courseId = courseIds[student.course];
-      const creator = ACCOUNTS.find(item => item.key === data.createdBy);
-      const result = await client.query(
+    async function setPatCourses(userId, courseIndexes) {
+      for (const index of courseIndexes || []) {
+        await client.query(
+          'INSERT INTO pat_assignments (user_id, course_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [userId, courseIds[index]]
+        );
+      }
+    }
+
+    for (const account of LEGACY_ACCOUNTS) {
+      const student = account.studentDni ? studentByDni.get(account.studentDni) : null;
+      const id = await ensureUser({
+        email: account.email, password: account.password, name: account.name,
+        roleCode: account.role, studentId: student?.id || null, scopeAll: Boolean(account.scopeAll)
+      });
+      await setCourses(id, account.courses);
+      await setPatCourses(id, account.patCourses);
+      for (const dni of account.tutorDnis || []) {
+        const tutored = studentByDni.get(dni);
+        if (tutored) {
+          await client.query(
+            'INSERT INTO tutor_students (tutor_user_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [id, tutored.id]
+          );
+        }
+      }
+    }
+
+    for (const member of STAFF) {
+      const id = await ensureUser({
+        email: member.email, password: INITIAL_PASSWORD, name: member.name,
+        roleCode: member.role, scopeAll: Boolean(member.scopeAll), mustChange: true
+      });
+      await setCourses(id, member.courses);
+    }
+
+    const teacherUsers = [];
+    for (const teacher of TEACHERS) {
+      const email = `prof.${slug(teacher.name)}@latzina.edu.ar`;
+      const id = await ensureUser({
+        email, password: INITIAL_PASSWORD, name: `${teacher.name} · ${teacher.subject}`,
+        roleCode: 'PROFESOR', mustChange: true
+      });
+      await setCourses(id, teacher.courses);
+      if (teacher.pat) await setPatCourses(id, teacher.courses.slice(0, 2));
+      teacherUsers.push({ ...teacher, id, email });
+    }
+
+    // Cuenta de alumno por legajo (la única cuenta histórica ya vinculada se respeta).
+    let studentAccounts = 0;
+    for (const row of studentRows) {
+      const linked = await client.query('SELECT id FROM users WHERE student_id = $1', [row.id]);
+      if (linked.rows[0]) continue;
+      const email = row.email || `${slug(row.first_name)}.${slug(row.last_name)}@latzina.edu.ar`;
+      await ensureUser({
+        email, password: INITIAL_PASSWORD,
+        name: `${row.first_name} ${row.last_name}`.trim(),
+        roleCode: 'ALUMNO', studentId: row.id, mustChange: true
+      });
+      studentAccounts += 1;
+    }
+
+    // Familias de ejemplo, cada una con varios alumnos a cargo.
+    let tutorAccounts = 0;
+    for (let index = 0; index < 12; index += 1) {
+      const email = `familia.${index + 1}@latzina.edu.ar`;
+      const firstName = FIRST_NAMES[(index * 3 + 1) % FIRST_NAMES.length];
+      const lastName = LAST_NAMES[(index * 5 + 2) % LAST_NAMES.length];
+      const id = await ensureUser({
+        email, password: INITIAL_PASSWORD,
+        name: `${firstName} ${lastName} (familia)`, roleCode: 'TUTOR', mustChange: true
+      });
+      const assigned = studentRows.slice(index * 6, index * 6 + 2);
+      for (const student of assigned) {
+        await client.query(
+          'INSERT INTO tutor_students (tutor_user_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [id, student.id]
+        );
+      }
+      tutorAccounts += 1;
+    }
+    console.log(`• Cuentas: ${teacherUsers.length} docentes, ${studentAccounts} alumnos, ${tutorAccounts} tutores, ${STAFF.length} personal.`);
+    console.log('• Cuenta administrativa de exposición: admin@latzina.edu.ar / 123 (rol Administrador).');
+
+    // ── Informes de demostración ──────────────────────────────────
+    const adminId = userIds['admin@latzina.edu.ar'];
+    const rectorId = userIds['regente@latzina.edu.ar'] || adminId;
+    const actor = {
+      id: adminId,
+      full_name: 'Administrador',
+      role_name: 'ADMINISTRADOR',
+      email: 'admin@latzina.edu.ar'
+    };
+    const authority = { ...actor, id: rectorId, full_name: 'Regencia ET35', role_name: 'REGENTE' };
+
+    let createdReports = 0;
+    for (let index = 0; index < 48; index += 1) {
+      const key = `demo-report-${index + 1}`;
+      const already = await client.query('SELECT 1 FROM seed_registry WHERE key = $1', [key]);
+      if (already.rows[0]) continue;
+
+      const student = studentRows[(index * 7 + 3) % studentRows.length];
+      const teachers = teacherUsers.filter(teacher => teacher.courses.includes(
+        COURSES.findIndex(c => c.year === student.year && c.division === student.division && c.specialty === student.specialty)
+      ));
+      const creator = teachers[index % Math.max(1, teachers.length)] || teacherUsers[index % teacherUsers.length];
+      const issueDaysAgo = (index % 18) + 1;
+      const pattern = index % 6;
+
+      let stage = 'descargo';
+      let status = 'Pendiente';
+      let studentText = '';
+      let submittedAt = null;
+      let deadlineOffset = index % 3 === 0 ? -2 : (index % 3 === 1 ? 1 : 6);
+      let severity = ['LEVE', 'GRAVE', 'MUY GRAVE'][index % 3];
+      let directorDate = null;
+      let signature = 'No Firmado';
+      let notifyStudent = false;
+      let notifyParent = false;
+
+      if (pattern === 1 || pattern === 2) {
+        studentText = `Descargo de demostración del alumno/a. Se reconoce el hecho y se explica la circunstancia. Caso de prueba N° ${index + 1}.`;
+        submittedAt = new Date(Date.now() - (issueDaysAgo - 1) * 86400000).toISOString();
+        stage = 'consejos';
+      }
+      if (pattern === 2) {
+        stage = 'dictamen';
+      }
+      if (pattern === 3) {
+        studentText = `Descargo presentado fuera de la etapa inicial (caso de demostración N° ${index + 1}).`;
+        submittedAt = new Date(Date.now() - 86400000).toISOString();
+        stage = 'notificado';
+        status = 'Resuelto';
+        directorDate = daysAgo(1);
+        signature = 'FIRMADO_AUTORIDAD_DEMO';
+        severity = 'GRAVE';
+        notifyStudent = true;
+        notifyParent = true;
+      }
+      if (pattern === 4) {
+        status = 'Anulado';
+        deadlineOffset = -10;
+      }
+
+      const reason = `${REASONS[index % REASONS.length]}`;
+      const description = `${DESCRIPTIONS[index % DESCRIPTIONS.length]} Registro de demostración N° ${index + 1}.`;
+      const deadline = daysFromNow(deadlineOffset);
+      const courseIndex = COURSES.findIndex(c => c.year === student.year && c.division === student.division && c.specialty === student.specialty);
+      const course = COURSES[courseIndex] || COURSES[0];
+
+      const inserted = await client.query(
         `INSERT INTO reports
           (student_id, created_by, issuer_name, issuer_role, issuer_email, issue_date,
            reason, description, student_text, statement_submitted_at, statement_deadline,
            preceptor_notes, pat_notes, council_notes, additional_notes, severity,
-           other_considerations, director_signature, director_date, director_user_id,
-           notify_student, notify_parent, status, stage, previous_status,
+           other_considerations, director_signature, director_signature_image, director_date,
+           director_user_id, notify_student, notify_parent, status, stage, previous_status,
            student_course_id, student_first_name, student_last_name, student_name,
            student_dni, student_year, student_division, student_specialty, student_shift,
            student_legajo)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-                 $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+                 $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
          RETURNING id`,
         [
-          studentIds[data.studentIndex], userIds[data.createdBy], creator.name,
-          data.issuerRole || 'Profesor/a', creator.email,
-          data.issueDate, data.reason, data.description,
-          data.studentText || '',
-          data.statementSubmittedAt || null,
-          data.statementDeadline,
-          data.preceptorNotes || '', data.patNotes || '', data.councilNotes || '',
-          data.additionalNotes || '', data.severity || 'LEVE',
-          data.otherConsiderations || '', data.directorSignature || 'No Firmado',
-          data.directorDate || null,
-          data.directorBy ? userIds[data.directorBy] : null,
-          Boolean(data.notifyStudent), Boolean(data.notifyParent),
-          data.status || 'Pendiente', data.stage || 'descargo',
-          data.previousStatus || null,
-          courseId, student.first, student.last, `${student.first} ${student.last}`.trim(),
-          student.dni, course.year, course.division, course.specialty, course.shift,
-          student.legajo
+          student.id, creator.id, creator.name, 'Profesor/a', creator.email,
+          daysAgo(issueDaysAgo), reason, description, studentText, submittedAt, deadline,
+          pattern >= 2 ? 'Se conversó con el alumno y se registró el seguimiento correspondiente.' : '',
+          pattern >= 2 ? 'Seguimiento orientativo sin medidas disciplinarias adicionales.' : '',
+          pattern >= 2 ? 'El Consejo de Convivencia evaluó el caso y sugirió una medida pedagógica.' : '',
+          pattern >= 3 ? 'Se informó a la familia por canales institucionales.' : '',
+          severity,
+          pattern >= 3 ? 'Refuerzo de normas de convivencia y seguimiento quincenal.' : '',
+          signature, pattern === 3 ? SIGNATURE_PNG : null, directorDate,
+          pattern === 3 ? authority.id : null,
+          notifyStudent, notifyParent, status, stage,
+          status === 'Anulado' ? 'Pendiente' : null,
+          student.course_id, student.first_name, student.last_name,
+          `${student.first_name} ${student.last_name}`.trim(), student.dni,
+          student.year, student.division, student.specialty, student.shift, student.legajo
         ]
       );
-      const reportId = result.rows[0].id;
-      for (const entry of data.history || []) {
-        const actor = entry.actor ? ACCOUNTS.find(item => item.key === entry.actor) : null;
-        await client.query(
-          `INSERT INTO report_history (report_id, action, actor_user_id, actor_name, actor_role, description, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, now() - ($7::int * interval '1 day'))`,
-          [
-            reportId, entry.action, actor ? userIds[actor.key] : null,
-            entry.actorName || actor?.name || 'Sistema', actor?.role || 'SISTEMA',
-            entry.description, entry.daysAgo || 0
-          ]
-        );
-      }
-      return reportId;
-    }
 
-    const report1 = await createReport({
-      studentIndex: 17,
-      createdBy: 'profesor',
-      issueDate: new Date().toISOString().slice(0, 10),
-      reason: 'Interrupción reiterada de la clase de taller',
-      description: 'Durante la clase del día se registraron interrupciones reiteradas y falta de respeto hacia el docente. Se informó a preceptoría en el momento. (Hecho ficticio para la demostración.)',
-      statementDeadline: daysFromNow(5),
-      stage: 'descargo',
-      history: [
-        { actor: 'profesor', action: 'CREACIÓN', description: 'Informe creado. Motivo: Interrupción reiterada de la clase de taller.', daysAgo: 0 }
-      ]
-    });
-
-    const report2 = await createReport({
-      studentIndex: 0,
-      createdBy: 'profesor',
-      issueDate: new Date().toISOString().slice(0, 10),
-      reason: 'Uso de teléfono en horario de taller',
-      description: 'Se solicitó en dos oportunidades guardar el teléfono durante la actividad práctica. El alumno respondió de forma desafiante. (Hecho ficticio.)',
-      statementDeadline: daysFromNow(-1),
-      studentText: 'Reconozco que usé el teléfono en clase y que respondí mal cuando me lo pidieron. (Descargo ficticio.)',
-      statementSubmittedAt: new Date().toISOString(),
-      preceptorNotes: 'Se conversó con el alumno y se acordó un compromiso de conducta para las próximas clases. (Nota ficticia.)',
-      stage: 'consejos',
-      history: [
-        { actor: 'profesor', action: 'CREACIÓN', description: 'Informe creado. Motivo: Uso de teléfono en horario de taller.', daysAgo: 3 },
-        { actor: null, actorName: 'Alumno/a (ficticio)', action: 'DESCARGO', description: 'El alumno presentó su descargo.', daysAgo: 2 },
-        { actor: 'preceptor', action: 'INTERVENCIÓN_PRECEPTOR', description: 'Se actualizaron las observaciones de preceptoría.', daysAgo: 1 }
-      ]
-    });
-
-    const report3 = await createReport({
-      studentIndex: 1,
-      createdBy: 'profesor',
-      issueDate: '2026-09-15',
-      reason: 'Daño a equipamiento del taller',
-      description: 'Se detectó daño intencional a una herramienta del taller. Se labró el registro correspondiente. (Hecho ficticio.)',
-      statementDeadline: '2026-09-20 23:59:00-03',
-      studentText: 'No participé del daño, pero reconozco que no avisé cuando lo vi. (Descargo ficticio.)',
-      statementSubmittedAt: '2026-09-17 10:30:00-03',
-      preceptorNotes: 'Se habló con el grupo y se identificaron responsables. (Nota ficticia.)',
-      patNotes: 'Se sugiere medida reparatoria y seguimiento quincenal. (Informe PAT ficticio.)',
-      councilNotes: 'El Consejo de Convivencia evaluó el hecho y propuso una medida reparatoria. (Acta ficticia.)',
-      additionalNotes: 'Se informó a la familia por los canales institucionales. (Aclaración ficticia.)',
-      severity: 'GRAVE',
-      otherConsiderations: 'Reparación del equipamiento y taller de convivencia.',
-      directorSignature: 'FIRMADO_AUTORIDAD_DEMO',
-      directorDate: '2026-09-22',
-      directorBy: 'regente',
-      notifyStudent: true,
-      notifyParent: true,
-      status: 'Resuelto',
-      stage: 'notificado',
-      history: [
-        { actor: 'profesor', action: 'CREACIÓN', description: 'Informe creado. Motivo: Daño a equipamiento del taller.', daysAgo: 20 },
-        { actor: null, actorName: 'Alumno/a (ficticio)', action: 'DESCARGO', description: 'El alumno presentó su descargo.', daysAgo: 18 },
-        { actor: 'preceptor', action: 'INTERVENCIÓN_PRECEPTOR', description: 'Se actualizaron las observaciones de preceptoría.', daysAgo: 17 },
-        { actor: 'pat', action: 'INTERVENCIÓN_PAT', description: 'Se actualizó el informe PAT / Consejo de Aula.', daysAgo: 16 },
-        { actor: 'regente', action: 'DICTAMEN', description: 'Dictamen emitido. Clasificación: GRAVE. Reparación del equipamiento y taller de convivencia.', daysAgo: 14 }
-      ]
-    });
-
-    const report4 = await createReport({
-      studentIndex: 2,
-      createdBy: 'profesor',
-      issueDate: new Date().toISOString().slice(0, 10),
-      reason: 'Llegadas tarde reiteradas',
-      description: 'Se registraron tres llegadas tarde en la misma semana, sin justificación presentada. (Hecho ficticio.)',
-      statementDeadline: daysFromNow(-2),
-      studentText: 'Llegué tarde porque el colectivo se retrasó. (Descargo ficticio.)',
-      statementSubmittedAt: new Date().toISOString(),
-      preceptorNotes: 'Se verificó la versión del alumno con la familia. (Nota ficticia.)',
-      patNotes: 'Se propone acuerdo de puntualidad. (Informe PAT ficticio.)',
-      councilNotes: 'Se sugiere medida pedagógica de seguimiento. (Acta ficticia.)',
-      additionalNotes: 'Pendiente de firma de la autoridad. (Aclaración ficticia.)',
-      severity: 'LEVE',
-      otherConsiderations: 'Acuerdo de puntualidad con seguimiento del preceptor.',
-      stage: 'dictamen',
-      history: [
-        { actor: 'profesor', action: 'CREACIÓN', description: 'Informe creado. Motivo: Llegadas tarde reiteradas.', daysAgo: 5 },
-        { actor: null, actorName: 'Alumno/a (ficticio)', action: 'DESCARGO', description: 'El alumno presentó su descargo.', daysAgo: 4 },
-        { actor: 'preceptor', action: 'INTERVENCIÓN_PRECEPTOR', description: 'Se actualizaron las observaciones de preceptoría.', daysAgo: 3 },
-        { actor: 'pat', action: 'INTERVENCIÓN_PAT', description: 'Se actualizó el informe PAT / Consejo de Aula.', daysAgo: 2 },
-        { actor: 'regente', action: 'DICTAMEN_PARCIAL', description: 'Se guardaron datos del dictamen sin fecha de cierre.', daysAgo: 1 }
-      ]
-    });
-
-    const report5 = await createReport({
-      studentIndex: 3,
-      createdBy: 'profesor',
-      issueDate: '2026-08-10',
-      reason: 'Falta de respeto a un compañero',
-      description: 'Registro inicial que luego fue anulado por un error de identificación del alumno. (Hecho ficticio.)',
-      statementDeadline: '2026-08-15 23:59:00-03',
-      status: 'Anulado',
-      stage: 'descargo',
-      previousStatus: 'Pendiente',
-      history: [
-        { actor: 'profesor', action: 'CREACIÓN', description: 'Informe creado. Motivo: Falta de respeto a un compañero.', daysAgo: 40 },
-        { actor: 'regente', action: 'ANULADO', description: 'Informe anulado. Motivo: error de identificación del alumno. Estado anterior: Pendiente.', daysAgo: 39 }
-      ]
-    });
-
-    // Notificaciones internas de ejemplo (registro, sin envío de correo).
-    const notifications = [
-      { reportId: report1, userKey: 'preceptor', recipientType: 'interno', type: 'Nuevo informe en su curso', message: 'Nuevo informe de Guinsburg Mateo. Requiere seguimiento según el procedimiento.' },
-      { reportId: report1, userKey: 'alumno', recipientType: 'alumno', type: 'Nuevo informe registrado', message: 'Se registró un informe de convivencia. Ingrese para consultarlo.' },
-      { reportId: report2, userKey: 'pat', recipientType: 'interno', type: 'Descargo del alumno presentado', message: 'Agustina Miranda presentó su descargo. Continúa la etapa de consejos.' },
-      { reportId: report3, userKey: 'secretaria', recipientType: 'interno', type: 'Informe dictaminado', message: 'El informe de Andacaba Madai quedó resuelto. Clasificación: GRAVE.' },
-      { reportId: report4, userKey: 'preceptor', recipientType: 'interno', type: 'Nuevo informe en su curso', message: 'Nuevo informe de Angulo Brunetti Alejo Nahuel. Requiere seguimiento.' }
-    ];
-    for (const item of notifications) {
-      const account = ACCOUNTS.find(account => account.key === item.userKey);
+      const reportId = inserted.rows[0].id;
+      const reportLike = {
+        id: reportId, student_id: student.id, course_id: student.course_id,
+        created_by: creator.id, severity, status, stage, statement_deadline: deadline
+      };
       await client.query(
-        `INSERT INTO notifications (report_id, recipient_user_id, recipient_type, recipient_label, type, message, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [item.reportId, userIds[item.userKey], item.recipientType, account.name, item.type, item.message, userIds.profesor]
+        `INSERT INTO report_history (report_id, action, actor_user_id, actor_name, actor_role, description, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6, now() - ($7::int * interval '1 day'))`,
+        [reportId, 'CREACIÓN', creator.id, creator.name, 'PROFESOR', `Informe creado. Motivo: ${reason}`, issueDaysAgo]
       );
+      await notifyReportCreated(client, reportLike, actor);
+      if (submittedAt) await notifyStatementSubmitted(client, reportLike, actor);
+      if (status === 'Resuelto') {
+        await notifyDictamen(client, reportLike, authority, { notifyStudent, notifyParent });
+      }
+      await client.query('INSERT INTO seed_registry (key) VALUES ($1)', [key]);
+      createdReports += 1;
     }
 
     await client.query(
       `INSERT INTO settings (key, value) VALUES
          ('statement_days', '5'::jsonb),
          ('school_name', $1::jsonb)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+       ON CONFLICT (key) DO NOTHING`,
       [JSON.stringify('Escuela Técnica N° 35 D.E. 18 "Ing. Eduardo Latzina"')]
     );
 
     await client.query('COMMIT');
-
-    console.log('\n✓ Datos de demostración listos. Nómina original restaurada.\n');
-    console.log('  Cuentas demo:');
-    for (const account of ACCOUNTS) {
-      console.log(`   ${account.role.padEnd(14)} ${account.email.padEnd(25)} ${account.password}`);
-    }
-    console.log(`\n  Informes demo: #${[report1, report2, report3, report4, report5].join(', #')}`);
-    console.log('  IMPORTANTE: cambie estas contraseñas antes de usar datos reales.\n');
+    console.log(`• Informes de demostración creados ahora: ${createdReports}.`);
+    console.log('\n✓ Seed finalizado sin borrar datos existentes.\n');
+    console.log('  Credenciales de demostración (contraseña inicial 123):');
+    console.log('   admin@latzina.edu.ar      Administrador');
+    console.log('   gerente@latzina.edu.ar    Gerente (gestiona usuarios y PAT)');
+    console.log('   rector@latzina.edu.ar     Rector/a');
+    console.log('   regente@latzina.edu.ar    Regente (autoridad firmante)');
+    console.log('   preceptoria@latzina.edu.ar Preceptoría');
+    console.log('   prof.<nombre>@latzina.edu.ar  Docentes (algunos con función PAT)');
+    console.log('   <nombre.apellido>@latzina.edu.ar  Alumnos');
+    console.log('   familia.N@latzina.edu.ar  Familias/tutores');
+    console.log('  Las cuentas @et35.demo se conservan con sus contraseñas originales.\n');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;

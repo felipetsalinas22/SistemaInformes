@@ -60,10 +60,11 @@
             position: fixed;
             top: 0; left: 0; right: 0;
             z-index: 100;
-            height: 56px;
+            height: 72px;
+            background-image: linear-gradient(90deg, var(--rojo-institucional-oscuro) 0%, var(--rojo-institucional) 55%, #c93522 100%);
         }
-        .header-title { display: flex; align-items: center; gap: 10px; }
-        .header-emblem { width: 38px; height: 38px; border-radius: 8px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; padding: 2px; }
+        .header-title { display: flex; align-items: center; gap: 12px; }
+        .header-emblem { width: 58px; height: 58px; border-radius: 10px; background: rgba(255,255,255,0.96); border: 2px solid var(--dorado); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; padding: 3px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
         .header-emblem img, .logo-img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .mobile-menu-btn { display: none; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; width: 38px; height: 38px; border-radius: 6px; font-size: 1.1rem; cursor: pointer; margin-right: 4px; }
         .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 149; }
@@ -75,7 +76,7 @@
         /* ── SIDEBAR ── */
         #sidebar {
             position: fixed;
-            top: 56px; bottom: 0; left: 0;
+            top: 72px; bottom: 0; left: 0;
             width: var(--sidebar-width);
             background-color: #0f172a;
             color: white;
@@ -114,7 +115,7 @@
         .sidebar-role select { width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; }
 
         /* ── MAIN LAYOUT ── */
-        #app-body { margin-top: 56px; margin-left: var(--sidebar-width); min-height: calc(100vh - 56px); }
+        #app-body { margin-top: 72px; margin-left: var(--sidebar-width); min-height: calc(100vh - 72px); }
 
         /* ── SECTIONS ── */
         .app-section { display: none; padding: 24px; max-width: 1200px; }
@@ -414,15 +415,18 @@
   #login-screen {
             min-height: 100vh; width: 100%;
             display: flex; align-items: center; justify-content: center;
-            background: linear-gradient(160deg, var(--azul-institucional) 0%, var(--azul-institucional-oscuro) 55%, #0e223a 100%);
-            padding: 20px;
+            background:
+              radial-gradient(circle at 12% 18%, rgba(239,227,117,.22) 0, transparent 34%),
+              linear-gradient(155deg, #0e223a 0%, var(--azul-institucional-oscuro) 48%, var(--azul-institucional) 100%);
+            padding: 24px;
         }
         .login-box {
-            background: var(--bg-card); border-radius: 14px; padding: 34px 30px;
-            width: 100%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+            background: var(--bg-card); border-radius: 16px; padding: 30px 34px 34px;
+            width: 100%; max-width: 460px; box-shadow: 0 24px 60px rgba(0,0,0,.42);
+            border-top: 6px solid var(--rojo-institucional);
             text-align: center;
         }
-        .login-logo { width: 84px; height: 84px; object-fit: contain; margin: 0 auto 12px; display: block; }
+        .login-logo { width: 150px; height: 200px; object-fit: contain; margin: 0 auto 14px; display: block; filter: drop-shadow(0 6px 10px rgba(0,0,0,.18)); }
         .login-box h1 { font-size: 1.05rem; color: var(--text-dark); margin-bottom: 2px; }
         .login-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
         .login-access-note { font-size: 0.74rem; color: #475569; line-height: 1.45; margin: -4px 0 14px; text-align: left; }
@@ -445,15 +449,21 @@
             header { padding: 10px 12px; }
             .header-title h1 { font-size: 0.95rem; }
             .header-title p { font-size: 0.7rem; }
+            .header-emblem { width: 48px; height: 48px; }
+            .login-logo { width: 112px; height: 150px; }
         }
         /* Institucional: una paleta consistente y controles cómodos en todas las vistas. */
         :root {
             --primary: var(--rojo-institucional);
-            --primary-light: var(--azul-institucional);
+            --primary-light: #e85c4c;
             --primary-dark: var(--rojo-institucional-oscuro);
             --danger: #9f2317;
             --border: #d9d6c9;
         }
+        /* Un solo acento para todas las acciones; azul, dorado y verde se
+           reservan para navegación, distinciones y estados institucionales. */
+        .btn-primary, .btn-brand, .tab-btn.active { background: var(--primary); }
+        .btn-primary:hover, .btn-brand:hover { background: var(--primary-dark); }
         #sidebar { background-color: var(--azul-institucional-oscuro); border-right-color: var(--azul-institucional); }
         .nav-btn.active { background: var(--rojo-institucional); color: #fff; }
         .nav-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
@@ -500,7 +510,7 @@
         .header-emblem img, .login-logo, .sidebar-footer img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
         .login-logo { width: 84px; height: 112px; }
         .header-emblem { width: 38px; height: 38px; padding: 3px; }
-        .sidebar-footer .sidebar-logo { display: block; width: 40px; height: auto; max-height: 56px; object-fit: contain; margin: 0 0 8px; }
+        .sidebar-footer .sidebar-logo { display: block; width: 72px; height: auto; max-height: 96px; object-fit: contain; margin: 0 auto 10px; }
         @media (max-width: 640px) {
             .app-section { padding: 16px 12px; }
             .form-row[style*="repeat(4,1fr)"] { grid-template-columns: 1fr 1fr !important; }
@@ -552,6 +562,15 @@
         .status-pendiente { background: #f7f1c9; color: #50491f; }
         .status-resuelto { background: #e9eddf; color: var(--verde-institucional); }
         .status-anulado { background: #fbe7e3; color: #812217; }
+        .deadline-badge { font-size: .66rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; display: inline-block; white-space: nowrap; }
+        .deadline-pendiente { background: #eef3f8; color: var(--azul-institucional-oscuro); }
+        .deadline-proximo { background: #fff4d6; color: #7a5a08; border: 1px solid #e9cf7a; }
+        .deadline-vencido { background: #fbe7e3; color: #812217; border: 1px solid #efb8ae; }
+        .deadline-completado { background: #e9eddf; color: var(--verde-institucional); }
+        .deadline-cerrado { background: #eef1f4; color: #5b6470; }
+        .char-counter { font-size: .72rem; color: var(--text-muted); text-align: right; margin-top: 4px; font-variant-numeric: tabular-nums; }
+        .char-counter.warn { color: #8a5a00; font-weight: 700; }
+        .char-counter.limit { color: var(--danger); font-weight: 800; }
         .stage-badge { font-size: .66rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #eef3f8; color: var(--azul-institucional-oscuro); display: inline-block; }
         .student-table-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
         .btn-xs { padding: 4px 9px; font-size: .72rem; border-radius: 5px; }
@@ -642,6 +661,7 @@
         .file-drop input { margin-top: 8px; }
         .audit-detail { font-family: ui-monospace, Consolas, monospace; font-size: .72rem; color: #475569; max-width: 340px; overflow-wrap: anywhere; }
         .badge-role { font-size: .66rem; background: #eef3f8; color: var(--azul-institucional-oscuro); border-radius: 10px; padding: 2px 7px; font-weight: 700; }
+        .badge-pat { font-size: .66rem; background: #fdf1cf; color: #6b5407; border: 1px solid var(--dorado-oscuro); border-radius: 10px; padding: 2px 7px; font-weight: 800; margin-left: 4px; }
         .empty-inline { color: #7a7b72; font-size: .82rem; padding: 10px 0; }
         .workflow-indicator.compact { margin-bottom: 14px; }
         .modal-footer .btn { font-size: .82rem; }
@@ -771,6 +791,7 @@
         <button type="button" class="btn btn-danger btn-sm" id="btn-logout" style="width:100%; justify-content:center;">Cerrar sesión</button>
     </div>
     <div class="sidebar-footer">
+        <img src="./escudo.png" class="sidebar-logo" alt="Escudo de la Escuela Técnica N° 35 Ing. Eduardo Latzina">
         <strong>Escuela Técnica N° 35 D.E. 18</strong>
         Sistema de Informes de Convivencia<br>
         <span style="font-size:0.62rem;">v4 · Base de datos PostgreSQL</span>
@@ -823,6 +844,13 @@
                     <option value="consejos">Consejos</option>
                     <option value="dictamen">Dictamen</option>
                     <option value="notificado">Notificado</option>
+                </select>
+                <select id="filtro-vencimiento" aria-label="Filtrar por plazo de descargo">
+                    <option value="">Todos los plazos</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="proximo">Próximo a vencer</option>
+                    <option value="vencido">Vencido</option>
+                    <option value="completado">Descargo completado</option>
                 </select>
             </div>
         </div>
@@ -1021,10 +1049,27 @@
                         <input type="text" id="setting-school-name" maxlength="120" required>
                         <p class="form-help">Se muestra en la aplicación y en los informes exportados.</p>
                     </div>
-                    <div class="form-group">
-                        <label for="setting-statement-days">Días hábiles para presentar el descargo</label>
-                        <input type="number" id="setting-statement-days" min="1" max="30" required>
-                        <p class="form-help">Plazo informativo utilizado por el servidor para habilitar el descargo del alumno.</p>
+                    <div class="form-row" style="grid-template-columns:repeat(2,1fr); gap:12px;">
+                        <div class="form-group">
+                            <label for="setting-statement-days">Días para presentar el descargo</label>
+                            <input type="number" id="setting-statement-days" min="1" max="30" required>
+                            <p class="form-help">Plazo aplicado al crear informes nuevos.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-statement-max-days">Máximo de prórroga (días)</label>
+                            <input type="number" id="setting-statement-max-days" min="1" max="90" required>
+                            <p class="form-help">Tope para prorrogar un plazo vencido.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-statement-max-length">Límite de caracteres del descargo</label>
+                            <input type="number" id="setting-statement-max-length" min="100" max="20000" required>
+                            <p class="form-help">Se refleja en el contador y en la validación del servidor.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-deadline-warning-hours">Aviso de próximo vencimiento (horas)</label>
+                            <input type="number" id="setting-deadline-warning-hours" min="1" max="168" required>
+                            <p class="form-help">Anticipación con la que se marca “próximo a vencer”.</p>
+                        </div>
                     </div>
                     <div id="settings-message"></div>
                     <button type="submit" class="btn btn-primary">Guardar configuración</button>
@@ -1159,6 +1204,9 @@
             <div id="password-forced-note" class="form-warning hidden">
                 Por seguridad, debe cambiar la contraseña temporal antes de continuar.
             </div>
+            <button type="button" class="btn btn-outline hidden" id="btn-skip-password" style="width:100%; margin-bottom:14px;">
+                Continuar con la contraseña demo (123)
+            </button>
             <form id="changePasswordForm" novalidate>
                 <div class="form-group">
                     <label for="pwd-current">Contraseña actual</label>
@@ -1180,6 +1228,31 @@
                 </div>
             </form>
         </div>
+    </div>
+</div>
+
+<!-- Prórroga administrativa del plazo de descargo -->
+<div class="modal-overlay" id="modal-prorroga" role="dialog" aria-modal="true" aria-labelledby="modal-prorroga-title">
+    <div class="modal-box" style="max-width:420px;">
+        <div class="modal-header">
+            <h3 id="modal-prorroga-title">Prorrogar plazo de descargo</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-prorroga" aria-label="Cerrar">✕</button>
+        </div>
+        <form id="prorrogaForm" novalidate>
+            <div class="modal-body">
+                <input type="hidden" id="prorroga-report-id" value="">
+                <p class="form-help">Acción reservada a administración. Se notificará al alumno y a la familia y quedará registrada en el historial.</p>
+                <div class="form-group">
+                    <label for="prorroga-dias">Días adicionales</label>
+                    <input type="number" id="prorroga-dias" min="1" max="30" value="3" required>
+                </div>
+                <div id="prorroga-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-close-modal="modal-prorroga">Cancelar</button>
+                <button type="submit" class="btn btn-brand">Prorrogar</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -1284,6 +1357,13 @@
                 <div class="form-group" id="usuario-cursos-group">
                     <label>Cursos / divisiones asignados</label>
                     <div id="usuario-cursos" class="assignment-grid"></div>
+                </div>
+                <div class="form-group hidden" id="usuario-pat-group">
+                    <label class="checkbox-line">
+                        <input type="checkbox" id="usuario-pat"> Función PAT (seguimiento y consulta)
+                    </label>
+                    <p class="form-help">Disponible sólo para docentes. Recibe notificaciones y consulta informes de los cursos marcados, sin crear ni modificar registros.</p>
+                    <div id="usuario-pat-cursos" class="assignment-grid"></div>
                 </div>
                 <div class="form-group hidden" id="usuario-alumno-group">
                     <label for="usuario-alumno">Legajo del alumno vinculado *</label>

@@ -6,13 +6,13 @@ import { requireAuth, requireCsrf } from '../auth.js';
 import { ApiError, asyncHandler, parseId } from '../lib/http.js';
 import { parseBody, dateSchema } from '../lib/validate.js';
 import { writeAudit, writeReportHistory } from '../lib/audit.js';
-import { notifyReportCreated, notifyStatementSubmitted, notifyDictamen, notifyAnnulment } from '../lib/notifications.js';
+import { notifyReportCreated, notifyStatementSubmitted, notifyDictamen, notifyAnnulment, notifyDeadlineChanged } from '../lib/notifications.js';
 import { addStudentScope, addReportScope } from '../lib/scope.js';
 import { ACTIVE_SEVERITIES } from '../lib/severity.js';
 import {
   ALL_FORM_FIELDS, FORM_FIELD_LABELS, reportActions, canCreateReports, canAccessStudent,
   canViewReport, canViewReportHistory, editableFields, canAnnullReport, canRevertAnnullment,
-  isStaff, isStudent, isTutor
+  isStaff, isStudent, isTutor, statementState, canManageSettings
 } from '../permissions.js';
 
 const router = Router();
@@ -101,7 +101,7 @@ function buildWorkflow(row) {
   });
 }
 
-function serializeReport(user, row, history = []) {
+function serializeReport(user, row, history = [], warningHours = 24) {
   const actions = reportActions(user, row);
   const readable = new Set(actions.readableFields);
   const staffView = isStaff(user);
@@ -119,6 +119,8 @@ function serializeReport(user, row, history = []) {
     stage: row.stage,
     statementDeadline: row.statement_deadline,
     statementSubmittedAt: row.statement_submitted_at,
+    deadlineState: statementState(row, new Date(), warningHours),
+    deadlineExpiredAt: row.deadline_expired_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     can: actions,
@@ -163,7 +165,7 @@ function serializeReport(user, row, history = []) {
   return out;
 }
 
-function serializeSummary(user, row) {
+function serializeSummary(user, row, warningHours = 24) {
   const actions = reportActions(user, row);
   const readable = new Set(actions.readableFields);
   const summary = {
@@ -181,6 +183,8 @@ function serializeSummary(user, row) {
     stage: row.stage,
     statementDeadline: row.statement_deadline,
     statementSubmittedAt: row.statement_submitted_at,
+    deadlineState: statementState(row, new Date(), warningHours),
+    deadlineExpiredAt: row.deadline_expired_at || null,
     updatedAt: row.updated_at,
     can: {
       canEdit: actions.canEdit,
@@ -212,13 +216,25 @@ async function fetchHistory(executor, reportId) {
   return result.rows;
 }
 
-async function statementDays(client) {
+async function settingNumber(client, key, fallback, min, max) {
   try {
-    const result = await client.query(`SELECT value FROM settings WHERE key = 'statement_days'`);
+    const result = await client.query(`SELECT value FROM settings WHERE key = $1`, [key]);
     const value = Number(result.rows[0]?.value);
-    if (Number.isFinite(value) && value >= 1 && value <= 30) return value;
+    if (Number.isFinite(value) && value >= min && value <= max) return value;
   } catch (_) {}
-  return config.statementDays;
+  return fallback;
+}
+
+function statementDays(client) {
+  return settingNumber(client, 'statement_days', config.statementDays, 1, 30);
+}
+
+function statementMaxLength(client) {
+  return settingNumber(client, 'statement_max_length', 5000, 100, 20000);
+}
+
+function statementMaxDays(client) {
+  return settingNumber(client, 'statement_max_days', 30, 1, 90);
 }
 
 // ── Metadatos para el formulario (cursos/alumnos a los que puede acceder) ──
@@ -271,6 +287,7 @@ router.get('/meta', requireAuth, asyncHandler(async (req, res) => {
     courses: [...coursesMap.values()],
     today: today(),
     statementDays: await statementDays({ query }),
+    statementMaxLength: await statementMaxLength({ query }),
     editableFieldLabels: FORM_FIELD_LABELS
   });
 }));
@@ -301,6 +318,28 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     }
     params.push(req.query.stage);
     conditions.push(`r.stage = $${params.length}`);
+  }
+  if (req.query.deadline) {
+    const valid = ['pendiente', 'proximo', 'vencido', 'completado', 'cerrado'];
+    if (!valid.includes(req.query.deadline)) throw ApiError.badRequest('Estado de plazo inválido.');
+    const d = req.query.deadline;
+    const hours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+    const usesHours = d === 'proximo' || d === 'pendiente';
+    if (usesHours) {
+      params.push(hours);
+    }
+    const hoursParam = usesHours ? `$${params.length}` : null;
+    if (d === 'completado') {
+      conditions.push('r.statement_submitted_at IS NOT NULL');
+    } else if (d === 'cerrado') {
+      conditions.push("(r.status <> 'Pendiente' OR r.stage <> 'descargo') AND r.statement_submitted_at IS NULL");
+    } else if (d === 'vencido') {
+      conditions.push("r.status = 'Pendiente' AND r.stage = 'descargo' AND r.statement_submitted_at IS NULL AND r.statement_deadline IS NOT NULL AND r.statement_deadline < now()");
+    } else if (d === 'proximo') {
+      conditions.push(`r.status = 'Pendiente' AND r.stage = 'descargo' AND r.statement_submitted_at IS NULL AND r.statement_deadline >= now() AND r.statement_deadline < now() + (${hoursParam}::numeric * interval '1 hour')`);
+    } else {
+      conditions.push(`r.status = 'Pendiente' AND r.stage = 'descargo' AND r.statement_submitted_at IS NULL AND r.statement_deadline >= now() + (${hoursParam}::numeric * interval '1 hour')`);
+    }
   }
   if (req.query.q) {
     params.push(`%${String(req.query.q).slice(0, 100)}%`);
@@ -334,7 +373,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     params
   );
 
-  res.json({ reports: result.rows.map(row => serializeSummary(user, row)) });
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.json({ reports: result.rows.map(row => serializeSummary(user, row, warningHours)) });
 }));
 
 // ── Detalle ────────────────────────────────────────────────────────
@@ -343,7 +383,8 @@ router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const row = await fetchReportRow({ query }, id);
   if (!row || !canViewReport(req.user, row)) throw ApiError.notFound('Informe no encontrado.');
   const history = isStaff(req.user) ? await fetchHistory({ query }, id) : [];
-  res.json({ report: serializeReport(req.user, row, history) });
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.json({ report: serializeReport(req.user, row, history, warningHours) });
 }));
 
 // ── Crear ──────────────────────────────────────────────────────────
@@ -423,7 +464,8 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
     ip: req.ip
   });
 
-  res.status(201).json({ report: serializeReport(user, created, history) });
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.status(201).json({ report: serializeReport(user, created, history, warningHours) });
 }));
 
 // ── Actualizar campos autorizados de la etapa ─────────────────────
@@ -469,6 +511,12 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
     if (!sent.length) throw ApiError.badRequest('No se recibieron campos para actualizar.');
 
     const data = parseBody(updateSchema, req.body);
+    if (data.student_text !== undefined) {
+      const max = await statementMaxLength(client);
+      if (String(data.student_text).length > max) {
+        throw ApiError.badRequest(`El descargo supera el límite de ${max} caracteres.`);
+      }
+    }
     if (data.severity === 'SUSPENSO' && row.severity !== 'SUSPENSO') {
       throw ApiError.badRequest('Suspenso ya no es una clasificación válida. Elija Leve, Grave o Muy grave.');
     }
@@ -595,7 +643,68 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
     ip: req.ip
   });
 
-  res.json({ report: serializeReport(user, result.row, history) });
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.json({ report: serializeReport(user, result.row, history, warningHours) });
+}));
+
+// ── Prórroga administrativa del plazo de descargo ──────────────────
+// Acción autorizada exclusivamente de administración: permite reabrir un
+// plazo vencido sin permitir que el alumno lo haga por su cuenta.
+const extendSchema = z.object({
+  extraDays: z.coerce.number().int().min(1)
+}).strict();
+
+router.post('/:id/extend-statement', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
+  if (!canManageSettings(req.user)) {
+    throw ApiError.forbidden('Sólo la administración puede prorrogar un plazo de descargo.');
+  }
+  const id = parseId(req.params.id);
+  const { extraDays } = parseBody(extendSchema, req.body);
+  const maxDays = await statementMaxDays({ query });
+  if (extraDays > maxDays) {
+    throw ApiError.badRequest(`El máximo de prórroga configurado es de ${maxDays} días.`);
+  }
+
+  const updated = await withTransaction(async (client) => {
+    const locked = await client.query(`${REPORT_SELECT} WHERE r.id = $1 FOR UPDATE OF r`, [id]);
+    const row = locked.rows[0];
+    if (!row) throw ApiError.notFound('Informe no encontrado.');
+    if (row.status !== 'Pendiente' || row.statement_submitted_at || row.stage !== 'descargo') {
+      throw ApiError.badRequest('El descargo ya no está pendiente; no se puede prorrogar el plazo.');
+    }
+
+    const now = new Date();
+    const current = row.statement_deadline ? new Date(row.statement_deadline) : null;
+    const base = current && current.getTime() > now.getTime() ? current : now;
+    const deadline = new Date(base.getTime() + extraDays * 86400000);
+
+    await client.query(
+      `UPDATE reports
+       SET statement_deadline = $1,
+           deadline_expired_at = NULL,
+           deadline_notified_at = NULL,
+           updated_at = now()
+       WHERE id = $2`,
+      [deadline.toISOString(), id]
+    );
+    const result = await fetchReportRow(client, id);
+    await writeReportHistory(client, {
+      reportId: id,
+      action: 'PLAZO_PRORROGADO',
+      actor: req.user,
+      description: `Plazo prorrogado ${extraDays} día(s) por administración. Nuevo vencimiento: ${deadline.toISOString()}.`
+    });
+    await notifyDeadlineChanged(client, result, req.user, extraDays);
+    return result;
+  });
+
+  await writeAudit({
+    actor: req.user, action: 'PLAZO_PRORROGADO', entity: 'report', entityId: id,
+    detail: { extraDays }, ip: req.ip
+  });
+  const history = await fetchHistory({ query }, id);
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.json({ report: serializeReport(req.user, updated, history, warningHours) });
 }));
 
 // ── Anulación y reversión (sólo directivos del ámbito) ─────────────
@@ -636,7 +745,8 @@ router.post('/:id/annul', requireAuth, requireCsrf, asyncHandler(async (req, res
     detail: { previousStatus: row.previous_status, motivo },
     ip: req.ip
   });
-  res.json({ report: serializeReport(user, row, history) });
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.json({ report: serializeReport(user, row, history, warningHours) });
 }));
 
 router.post('/:id/revert', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
@@ -672,7 +782,8 @@ router.post('/:id/revert', requireAuth, requireCsrf, asyncHandler(async (req, re
     detail: { restoredStatus: row.status },
     ip: req.ip
   });
-  res.json({ report: serializeReport(user, row, history) });
+  const warningHours = await settingNumber({ query }, 'deadline_warning_hours', 24, 1, 168);
+  res.json({ report: serializeReport(user, row, history, warningHours) });
 }));
 
 // Los informes escolares no se eliminan: se anulan y conservan su historial.

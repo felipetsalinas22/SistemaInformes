@@ -154,7 +154,7 @@ async function assertActiveCourse(courseId) {
 }
 
 router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo un administrador puede crear alumnos.');
+  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede crear alumnos.');
   const data = parseBody(studentCreateSchema, req.body);
   await assertActiveCourse(data.course_id);
 
@@ -181,7 +181,7 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
 }));
 
 router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo un administrador puede modificar alumnos.');
+  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede modificar alumnos.');
   const id = parseId(req.params.id);
   const data = parseBody(studentUpdateSchema, req.body);
 
@@ -225,7 +225,7 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
 // Baja lógica por defecto: el legajo y sus informes se conservan.
 // `?permanent=true` sólo elimina físicamente si no tiene informes ni cuenta.
 router.delete('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo un administrador puede dar de baja alumnos.');
+  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede dar de baja alumnos.');
   const id = parseId(req.params.id);
 
   if (String(req.query.permanent) === 'true') {
@@ -370,7 +370,7 @@ const importSchema = z.object({
 }).strict();
 
 router.post('/import', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
-  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo un administrador puede importar alumnos.');
+  if (!canManageStudents(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede importar alumnos.');
   const { csv, dryRun, allowPartial } = parseBody(importSchema, req.body);
 
   const rows = parseCsv(csv);

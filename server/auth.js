@@ -17,7 +17,11 @@ const USER_SELECT = `
          COALESCE((
            SELECT array_agg(ts.student_id ORDER BY ts.student_id)
            FROM tutor_students ts WHERE ts.tutor_user_id = u.id
-         ), '{}') AS tutor_student_ids
+         ), '{}') AS tutor_student_ids,
+         COALESCE((
+           SELECT array_agg(pa.course_id ORDER BY pa.course_id)
+           FROM pat_assignments pa WHERE pa.user_id = u.id
+         ), '{}') AS pat_course_ids
   FROM users u
   JOIN roles r ON r.id = u.role_id
 `;
@@ -44,6 +48,8 @@ export function publicUser(user) {
     scopeAll: Boolean(user.scope_all),
     courseIds: user.course_ids || [],
     tutorStudentIds: user.tutor_student_ids || [],
+    patCourseIds: user.pat_course_ids || [],
+    isPat: (user.pat_course_ids || []).length > 0,
     isActive: Boolean(user.is_active),
     mustChangePassword: Boolean(user.must_change_password),
     lastLoginAt: user.last_login_at,

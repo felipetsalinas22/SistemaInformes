@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { query } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { asyncHandler } from '../lib/http.js';
-import { isAdmin, isDirectivo, isReadonly, isStudent, isTutor } from '../permissions.js';
+import { isManager, isDirectivo, isReadonly, isStudent, isTutor } from '../permissions.js';
 
 const router = Router();
 
@@ -13,7 +13,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   );
 
   let courseRows;
-  if (isAdmin(user) || ((isDirectivo(user) || isReadonly(user)) && user.scope_all)) {
+  if (isManager(user) || ((isDirectivo(user) || isReadonly(user)) && user.scope_all)) {
     courseRows = await query(
       'SELECT id, year, division, specialty, shift FROM courses WHERE is_active = TRUE ORDER BY year, division, specialty'
     );
@@ -40,11 +40,15 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     );
   }
 
-  const settings = await query(`SELECT key, value FROM settings WHERE key IN ('statement_days', 'school_name')`);
+  const settings = await query(`SELECT key, value FROM settings WHERE key IN (
+    'statement_days', 'statement_max_days', 'statement_max_length', 'deadline_warning_hours', 'school_name'
+  )`);
   const settingsMap = Object.fromEntries(settings.rows.map(row => [row.key, row.value]));
 
   res.json({
-    roles: roles.rows.map(row => ({
+    // El rol PAT se conserva en la BD por compatibilidad histórica, pero no
+    // se ofrece al crear cuentas: la función PAT se asigna a un PROFESOR.
+    roles: roles.rows.filter(row => row.code !== 'PAT').map(row => ({
       id: row.id,
       code: row.code,
       name: row.name,
@@ -61,6 +65,9 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     })),
     settings: {
       statementDays: Number(settingsMap.statement_days) || 5,
+      statementMaxDays: Number(settingsMap.statement_max_days) || 30,
+      statementMaxLength: Number(settingsMap.statement_max_length) || 5000,
+      deadlineWarningHours: Number(settingsMap.deadline_warning_hours) || 24,
       schoolName: settingsMap.school_name || 'Escuela Técnica N° 35 D.E. 18'
     },
     today: new Date().toISOString().slice(0, 10)

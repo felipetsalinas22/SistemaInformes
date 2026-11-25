@@ -2,6 +2,7 @@ import config from './config.js';
 import { createApp } from './app.js';
 import { closePool } from './db.js';
 import { cleanupExpiredSessions } from './auth.js';
+import { startDeadlineWorker } from './lib/deadlines.js';
 
 const app = createApp();
 
@@ -15,6 +16,8 @@ const cleanupTimer = setInterval(() => {
   cleanupExpiredSessions().catch(error => console.error('[auth] Limpieza de sesiones:', error.message));
 }, 60 * 60 * 1000);
 cleanupTimer.unref();
+
+startDeadlineWorker();
 
 async function shutdown(signal) {
   console.log(`\n${signal} recibido. Cerrando servidor...`);

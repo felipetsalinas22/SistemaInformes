@@ -100,7 +100,8 @@
       create: (data) => post('/reports', data),
       update: (id, data) => patch(`/reports/${encodeURIComponent(id)}`, data),
       annul: (id, motivo) => post(`/reports/${encodeURIComponent(id)}/annul`, { motivo }),
-      revert: (id) => post(`/reports/${encodeURIComponent(id)}/revert`, {})
+      revert: (id) => post(`/reports/${encodeURIComponent(id)}/revert`, {}),
+      extendStatement: (id, extraDays) => post(`/reports/${encodeURIComponent(id)}/extend-statement`, { extraDays })
     },
 
     students: {

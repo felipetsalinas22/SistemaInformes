@@ -27,12 +27,21 @@ async function recipientsForStudent(client, studentId) {
 }
 
 async function courseStaff(client, courseId, roleCodes) {
+  // Incluye al personal del curso y, además, a los docentes con la función
+  // PAT asignada sobre ese curso, sin importar que sean creadores del informe.
   const result = await client.query(
-    `SELECT DISTINCT u.id, u.full_name, u.email, r.code AS role_code
+    `SELECT DISTINCT ON (u.id) u.id, u.full_name, u.email,
+            CASE WHEN pa.course_id IS NOT NULL THEN 'PAT' ELSE r.code END AS role_code
      FROM users u
      JOIN roles r ON r.id = u.role_id
-     JOIN user_courses uc ON uc.user_id = u.id
-     WHERE uc.course_id = $1 AND u.is_active = TRUE AND r.code = ANY($2::text[])`,
+     LEFT JOIN user_courses uc ON uc.user_id = u.id AND uc.course_id = $1
+     LEFT JOIN pat_assignments pa ON pa.user_id = u.id AND pa.course_id = $1
+     WHERE u.is_active = TRUE
+       AND (
+         (uc.course_id IS NOT NULL AND r.code = ANY($2::text[]))
+         OR (pa.course_id IS NOT NULL AND r.code = 'PROFESOR')
+       )
+     ORDER BY u.id, pa.course_id NULLS LAST`,
     [courseId, roleCodes]
   );
   return result.rows;
@@ -142,6 +151,51 @@ export async function notifyDictamen(client, report, actor, { notifyStudent, not
       type: 'Informe dictaminado',
       message: `El informe de ${studentName} quedó resuelto. Clasificación: ${report.severity}.`,
       createdBy: actor.id
+    });
+  }
+}
+
+export async function notifyDeadlineChanged(client, report, actor, extraDays) {
+  const studentName = await studentLabel(client, report.student_id);
+  const family = await recipientsForStudent(client, report.student_id);
+  for (const person of family) {
+    await insertNotification(client, {
+      reportId: report.id,
+      recipientUserId: person.id,
+      recipientType: person.role_code === 'ALUMNO' ? 'alumno' : 'familia',
+      recipientLabel: person.role_code === 'ALUMNO' ? studentName : `${person.full_name} (${person.email})`,
+      type: 'Plazo de descargo prorrogado',
+      message: `La administración prorrogó ${extraDays} día(s) el plazo para presentar el descargo. Nuevo vencimiento: ${new Date(report.statement_deadline).toLocaleString('es-AR')}.`,
+      createdBy: actor.id
+    });
+  }
+}
+
+/** Aviso automático del worker de plazos, sin depender de una sesión abierta. */
+export async function notifyDeadlineExpired(client, report) {
+  const studentName = await studentLabel(client, report.student_id);
+  const family = await recipientsForStudent(client, report.student_id);
+  const staff = await courseStaff(client, report.course_id, ['PRECEPTOR', 'PAT', 'DOE']);
+  const creator = await creatorOf(client, report);
+  const recipients = [...family, ...staff, creator].filter(Boolean);
+  const seen = new Set();
+  const due = report.statement_deadline
+    ? new Date(report.statement_deadline).toLocaleString('es-AR')
+    : 'fecha no disponible';
+
+  for (const person of recipients) {
+    if (seen.has(person.id)) continue;
+    seen.add(person.id);
+    const isStudent = person.role_code === 'ALUMNO';
+    const isFamily = !isStudent && (person.role_code === 'TUTOR' || person.email?.includes('familia'));
+    await insertNotification(client, {
+      reportId: report.id,
+      recipientUserId: person.id,
+      recipientType: isStudent ? 'alumno' : isFamily ? 'familia' : 'interno',
+      recipientLabel: isStudent ? studentName : person.full_name,
+      type: 'Plazo de descargo vencido',
+      message: `Venció el plazo para presentar el descargo del informe de ${studentName} (${due}). La administración puede prorrogarlo si corresponde.`,
+      createdBy: report.created_by
     });
   }
 }

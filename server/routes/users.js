@@ -13,18 +13,21 @@ import {
 const router = Router();
 
 function requireAdmin(req) {
-  if (!canManageUsers(req.user)) throw ApiError.forbidden('Sólo un administrador puede gestionar usuarios.');
+  if (!canManageUsers(req.user)) throw ApiError.forbidden('Sólo la gestión (Administrador o Gerente) puede gestionar usuarios.');
 }
 
 function lowerRoleSet(set) {
   return new Set([...set].map(role => role.toLowerCase()));
 }
 
-const COURSE_REQUIRED = new Set(['PROFESOR', 'PRECEPTOR', 'PAT', 'DOE']);
-const GLOBAL_SCOPE_ROLES = new Set([...DIRECTIVO_ROLES, ...READONLY_ROLES, ROLES.ADMIN]);
+const COURSE_REQUIRED = new Set(['PROFESOR', 'PRECEPTOR', 'DOE']);
+const GLOBAL_SCOPE_ROLES = new Set([...DIRECTIVO_ROLES, ...READONLY_ROLES, ROLES.ADMIN, ROLES.GERENTE]);
 
 async function getRole(client, code) {
-  const result = await client.query('SELECT id, code, name FROM roles WHERE code = $1', [code]);
+  if (code === ROLES.PAT) {
+    throw ApiError.badRequest('PAT ya no es un rol: seleccione PROFESOR y active la función PAT.');
+  }
+  const result = await client.query('SELECT id, code, name, is_system FROM roles WHERE code = $1', [code]);
   if (!result.rows[0]) throw ApiError.badRequest('Rol inválido.');
   return result.rows[0];
 }
@@ -47,9 +50,14 @@ async function assertStudents(client, ids) {
   if (result.rows.length !== new Set(ids).size) throw ApiError.badRequest('Uno o más alumnos no existen o están inactivos.');
 }
 
-async function syncRelations(client, userId, roleCode, data, current = {}) {
+async function syncRelations(client, userId, roleCode, data, current = {}, actorId = null) {
   const courseIds = [...new Set((data.courseIds ?? current.courseIds ?? []).map(Number).filter(Boolean))];
   const tutorStudentIds = [...new Set((data.tutorStudentIds ?? current.tutorStudentIds ?? []).map(Number).filter(Boolean))];
+  // La función PAT sólo puede recaer en un docente. Se conserva si el
+  // formulario no la envía y se limpia automáticamente al cambiar de rol.
+  const patIds = roleCode === ROLES.PROFESOR
+    ? [...new Set((data.patCourseIds ?? current.patCourseIds ?? []).map(Number).filter(Boolean))]
+    : [];
   const studentId = data.studentId !== undefined ? data.studentId : current.studentId;
 
   if (roleCode === ROLES.ALUMNO) {
@@ -91,6 +99,17 @@ async function syncRelations(client, userId, roleCode, data, current = {}) {
     }
   }
 
+  await client.query('DELETE FROM pat_assignments WHERE user_id = $1', [userId]);
+  if (patIds.length) {
+    await assertCourses(client, patIds);
+    for (const courseId of patIds) {
+      await client.query(
+        'INSERT INTO pat_assignments (user_id, course_id, created_by) VALUES ($1, $2, $3)',
+        [userId, courseId, actorId]
+      );
+    }
+  }
+
   const finalStudentId = roleCode === ROLES.ALUMNO ? studentId : null;
   const finalScopeAll = roleCode === ROLES.ADMIN
     ? true
@@ -103,7 +122,7 @@ async function syncRelations(client, userId, roleCode, data, current = {}) {
 
 async function loadAssignments(userIds) {
   if (!userIds.length) return { courses: new Map(), tutors: new Map(), students: new Map() };
-  const [courses, tutors, students] = await Promise.all([
+  const [courses, tutors, students, pats] = await Promise.all([
     query(
       `SELECT uc.user_id, c.id, c.year, c.division, c.specialty
        FROM user_courses uc JOIN courses c ON c.id = uc.course_id
@@ -121,6 +140,13 @@ async function loadAssignments(userIds) {
       `SELECT s.id, s.first_name, s.last_name, s.dni
        FROM students s JOIN users u ON u.student_id = s.id
        WHERE u.id = ANY($1::uuid[])`,
+      [userIds]
+    ),
+    query(
+      `SELECT pa.user_id, c.id, c.year, c.division, c.specialty
+       FROM pat_assignments pa JOIN courses c ON c.id = pa.course_id
+       WHERE pa.user_id = ANY($1::uuid[])
+       ORDER BY c.year, c.division, c.specialty`,
       [userIds]
     )
   ]);
@@ -149,7 +175,18 @@ async function loadAssignments(userIds) {
     row.id,
     { id: row.id, name: `${row.first_name} ${row.last_name}`.trim(), dni: row.dni }
   ]));
-  return { courses: courseMap, tutors: tutorMap, students: studentMap };
+  const patMap = new Map();
+  for (const row of pats.rows) {
+    if (!patMap.has(row.user_id)) patMap.set(row.user_id, []);
+    patMap.get(row.user_id).push({
+      id: row.id,
+      year: Number(row.year),
+      division: Number(row.division),
+      specialty: row.specialty,
+      label: `${row.year}° ${row.division}° ${row.specialty}`
+    });
+  }
+  return { courses: courseMap, tutors: tutorMap, students: studentMap, pats: patMap };
 }
 
 function emptyToNull(value) {
@@ -182,6 +219,9 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       courses: assignments.courses.get(row.id) || [],
       tutorStudentIds: (assignments.tutors.get(row.id) || []).map(s => s.id),
       tutorStudents: assignments.tutors.get(row.id) || [],
+      patCourseIds: (assignments.pats.get(row.id) || []).map(c => c.id),
+      patCourses: assignments.pats.get(row.id) || [],
+      isPat: (assignments.pats.get(row.id) || []).length > 0,
       isActive: Boolean(row.is_active),
       mustChangePassword: Boolean(row.must_change_password),
       lastLoginAt: row.last_login_at,
@@ -198,6 +238,7 @@ const baseUserSchema = {
   courseIds: z.array(z.coerce.number().int().positive()).max(100).optional(),
   studentId: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
   tutorStudentIds: z.array(z.coerce.number().int().positive()).max(20).optional(),
+  patCourseIds: z.array(z.coerce.number().int().positive()).max(100).optional(),
   isActive: z.boolean().optional()
 };
 
@@ -221,7 +262,7 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
       [data.email, passwordHash, data.fullName, role.id, req.user.id]
     );
     const userId = inserted.rows[0].id;
-    await syncRelations(client, userId, role.code, data, {});
+    await syncRelations(client, userId, role.code, data, {}, req.user.id);
     return userId;
   }).catch(error => {
     if (error.code === '23505') throw ApiError.conflict('Ya existe un usuario con ese mail o ese legajo vinculado.');
@@ -287,21 +328,23 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
       await client.query(`UPDATE users SET ${parts.join(', ')}, updated_at = now() WHERE id = $${values.length}`, values);
     }
 
-    const relationChanged = ['roleCode', 'scopeAll', 'courseIds', 'studentId', 'tutorStudentIds'].some(key => key in data);
+    const relationChanged = ['roleCode', 'scopeAll', 'courseIds', 'studentId', 'tutorStudentIds', 'patCourseIds'].some(key => key in data);
     if (relationChanged) {
       const currentAssignments = await client.query(
         `SELECT
            COALESCE((SELECT array_agg(course_id) FROM user_courses WHERE user_id = $1), '{}') AS course_ids,
-           COALESCE((SELECT array_agg(student_id) FROM tutor_students WHERE tutor_user_id = $1), '{}') AS tutor_student_ids`,
+           COALESCE((SELECT array_agg(student_id) FROM tutor_students WHERE tutor_user_id = $1), '{}') AS tutor_student_ids,
+           COALESCE((SELECT array_agg(course_id) FROM pat_assignments WHERE user_id = $1), '{}') AS pat_course_ids`,
         [id]
       );
       const currentData = {
         courseIds: currentAssignments.rows[0].course_ids,
         tutorStudentIds: currentAssignments.rows[0].tutor_student_ids,
+        patCourseIds: currentAssignments.rows[0].pat_course_ids,
         studentId: current.student_id,
         scopeAll: current.scope_all
       };
-      await syncRelations(client, id, targetRole.code, data, currentData);
+      await syncRelations(client, id, targetRole.code, data, currentData, req.user.id);
     }
 
     if (data.isActive === false || (data.roleCode && data.roleCode !== current.role_code)) {

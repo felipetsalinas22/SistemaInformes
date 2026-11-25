@@ -53,7 +53,6 @@
     { code: 'JEFE_TALLER', name: 'Jefe/a de Taller' },
     { code: 'PROFESOR', name: 'Profesor/a' },
     { code: 'PRECEPTOR', name: 'Preceptor/a' },
-    { code: 'PAT', name: 'Equipo PAT' },
     { code: 'DOE', name: 'Equipo DOE' },
     { code: 'SECRETARIA', name: 'Secretaría' },
     { code: 'ASESORIA', name: 'Asesoría' },
@@ -68,9 +67,9 @@
     REGENTE: 'Dirección: supervisa, dictamina y anula informes de su ámbito.',
     SUBREGENTE: 'Dirección: supervisa, dictamina y anula informes de su ámbito.',
     JEFE_TALLER: 'Dirección: supervisa, dictamina y anula informes de su ámbito.',
-    PROFESOR: 'Crea informes de alumnos de los cursos asignados y ve sólo los que creó.',
+    PROFESOR: 'Crea informes de sus cursos y ve los que creó. Si se activa la función PAT, además consulta los informes de los cursos asignados para seguimiento.',
     PRECEPTOR: 'Completa observaciones de preceptoría en los cursos asignados.',
-    PAT: 'Completa informes del PAT / Consejo de Aula en los cursos asignados.',
+    PAT: 'La función PAT se activa sobre un PROFESOR: sólo recibe notificaciones y consulta informes para seguimiento.',
     DOE: 'Completa informes del DOE en los cursos asignados.',
     SECRETARIA: 'Consulta informes de los cursos asignados, sin editar contenido.',
     ASESORIA: 'Consulta informes de los cursos asignados, sin editar contenido.',
@@ -78,8 +77,8 @@
     TUTOR: 'Accede únicamente a los legajos de los alumnos a su cargo.'
   };
 
-  const COURSE_ROLES = ['PROFESOR', 'PRECEPTOR', 'PAT', 'DOE'];
-  const GLOBAL_SCOPE_ROLES = ['RECTOR', 'VICERRECTOR', 'REGENTE', 'SUBREGENTE', 'JEFE_TALLER', 'SECRETARIA', 'ASESORIA'];
+  const COURSE_ROLES = ['PROFESOR', 'PRECEPTOR', 'DOE'];
+  const GLOBAL_SCOPE_ROLES = ['RECTOR', 'VICERRECTOR', 'REGENTE', 'SUBREGENTE', 'JEFE_TALLER', 'SECRETARIA', 'ASESORIA', 'GERENTE'];
   const CREATION_FIELDS = ['reason', 'severity', 'description', 'issue_date'];
   const SEVERITY_OPTIONS = ['LEVE', 'GRAVE', 'MUY GRAVE'];
 
@@ -223,6 +222,44 @@
     return 'status-pendiente';
   }
 
+  const DEADLINE_LABELS = {
+    pendiente: 'En plazo',
+    proximo: 'Próximo a vencer',
+    vencido: 'Vencido',
+    completado: 'Descargo recibido',
+    cerrado: 'Sin descargo',
+    sin_plazo: 'Sin plazo'
+  };
+
+  function deadlineState(report) {
+    if (!report) return 'sin_plazo';
+    if (report.deadlineState) return report.deadlineState;
+    if (report.statementSubmittedAt) return 'completado';
+    if (report.status !== 'Pendiente' || report.stage !== 'descargo' || !report.statementDeadline) return 'cerrado';
+    const diff = new Date(report.statementDeadline).getTime() - Date.now();
+    if (!Number.isFinite(diff)) return 'sin_plazo';
+    if (diff < 0) return 'vencido';
+    if (diff <= 86400000) return 'proximo';
+    return 'pendiente';
+  }
+
+  function deadlineBadge(report) {
+    const stateName = deadlineState(report);
+    return `<span class="deadline-badge deadline-${esc(stateName)}">${esc(DEADLINE_LABELS[stateName] || stateName)}</span>`;
+  }
+
+  function updateCharCounter(textarea) {
+    if (!textarea) return;
+    const box = document.querySelector(`[data-counter-for="${textarea.id}"]`);
+    if (!box) return;
+    const max = Number(state.meta?.settings?.statementMaxLength || state.meta?.statementMaxLength) || 5000;
+    const used = textarea.value.length;
+    const remaining = max - used;
+    box.textContent = `${used} / ${max} caracteres · quedan ${remaining}`;
+    box.classList.toggle('warn', remaining <= 500 && remaining > 100);
+    box.classList.toggle('limit', remaining <= 100);
+  }
+
   function severityBadge(severity) {
     if (!severity) return '';
     const classes = {
@@ -341,9 +378,9 @@
         $('#badge-demo')?.classList.remove('hidden');
         const notice = $('#login-demo-notice');
         if (notice) {
-          notice.innerHTML = '<strong>Instancia de demostración.</strong> Se restauró la nómina original de alumnos; '
-            + 'los informes, observaciones y cuentas son de prueba. No cargue información adicional de alumnos '
-            + 'hasta definir el uso institucional y las políticas de privacidad.';
+          notice.innerHTML = '<strong>Instancia de demostración.</strong> Nómina ampliada (1.° a 6.° año, divisiones 1.° a 3.°), '
+            + 'informes, notificaciones y cuentas de prueba. Acceso administrativo: <code>admin@latzina.edu.ar</code> / <code>123</code>. '
+            + 'El resto de las cuentas nuevas también usan <code>123</code>; las cuentas <code>@et35.demo</code> conservan sus claves originales.';
         }
       }
     } catch (_) {
@@ -433,9 +470,10 @@
     if (!me) return;
     const name = me.fullName || me.email;
     $('#sidebar-user-name').textContent = name;
-    $('#sidebar-user-role').textContent = me.roleName || roleName(me.roleCode);
+    const roleText = `${me.roleName || roleName(me.roleCode)}${me.isPat ? ' · PAT' : ''}`;
+    $('#sidebar-user-role').textContent = roleText;
     $('#sidebar-avatar').textContent = initials(name);
-    $('#header-user-name').textContent = `${name} · ${me.roleName || roleName(me.roleCode)}`;
+    $('#header-user-name').textContent = `${name} · ${roleText}`;
     $('#header-user-chip')?.classList.remove('hidden');
 
     $('#nav-admin')?.classList.toggle('hidden', !hasAdminAccess());
@@ -456,6 +494,9 @@
     };
     const subtitle = $('#informes-subtitle');
     if (subtitle) subtitle.textContent = subtitles[me.roleCode] || 'Registro institucional de situaciones escolares.';
+    if (me.roleCode === 'PROFESOR' && state.permissions.patFunction && subtitle) {
+      subtitle.textContent += ' Con la función PAT activa puede consultar informes de seguimiento de los cursos asignados, sin editarlos.';
+    }
   }
 
   async function loadAllData() {
@@ -661,7 +702,8 @@
       q: norm($('#filtro-busqueda')?.value || ''),
       severity: $('#filtro-gravedad')?.value || '',
       courseId: $('#filtro-curso')?.value || '',
-      stage: $('#filtro-etapa')?.value || ''
+      stage: $('#filtro-etapa')?.value || '',
+      deadline: $('#filtro-vencimiento')?.value || ''
     };
   }
 
@@ -672,6 +714,7 @@
       if (filters.severity && report.severity !== filters.severity) return false;
       if (filters.courseId && Number(report.student.courseId) !== Number(filters.courseId)) return false;
       if (filters.stage && report.stage !== filters.stage) return false;
+      if (filters.deadline && deadlineState(report) !== filters.deadline) return false;
       if (filters.q) {
         const haystack = norm([
           report.student?.name,
@@ -801,10 +844,10 @@
             <div class="report-meta">${esc(student.course || 'Curso no informado')} · DNI ${esc(student.dni || '—')} · Informe N° ${report.id}</div>
             <div class="report-meta">Emitido el ${fmtDate(report.issueDate)}${report.issuer?.name ? ` por ${esc(report.issuer.name)}` : ''}</div>
             ${report.reason ? `<div class="report-reason"><strong>Motivo:</strong> ${esc(truncate(report.reason, 190))}</div>` : ''}
-            ${can.statementOpen ? `<div class="form-warning" style="margin:8px 0 0; padding:5px 8px;">Descargo habilitado hasta ${fmtDate(report.statementDeadline)}.</div>` : ''}
+            ${report.statementDeadline ? `<div class="report-meta" style="margin-top:6px;">Plazo: ${fmtDateTime(report.statementDeadline)} ${deadlineBadge(report)}</div>` : ''}
           </div>
           <div style="text-align:right; min-width:150px;">
-            <div><span class="status-badge ${statusClass(report.status)}">${esc(report.status)}</span> ${stageBadge(report.stage)}</div>
+            <div><span class="status-badge ${statusClass(report.status)}">${esc(report.status)}</span> ${stageBadge(report.stage)} ${deadlineBadge(report)}</div>
             <div style="margin-top:6px;">${severityBadge(report.severity)}</div>
             <div class="report-meta" style="margin-top:5px;">Última actualización<br>${fmtDateTime(report.updatedAt)}</div>
           </div>
@@ -900,7 +943,7 @@
       ['Emisor', `${report.issuer?.name || '—'}${report.issuer?.role ? ` · ${report.issuer.role}` : ''}`],
       ['Fecha de emisión', fmtDate(report.issueDate)],
       ['Etapa actual', STAGE_LABELS[report.stage] || report.stage || '—'],
-      ['Plazo de descargo', report.statementDeadline ? fmtDate(report.statementDeadline) : '—'],
+      ['Plazo de descargo', report.statementDeadline ? `${fmtDateTime(report.statementDeadline)} · ${DEADLINE_LABELS[deadlineState(report)] || '—'}` : '—'],
       ['Descargo presentado', report.statementSubmittedAt ? fmtDateTime(report.statementSubmittedAt) : '—'],
       ['Última actualización', fmtDateTime(report.updatedAt)]
     ];
@@ -963,6 +1006,9 @@
     if (can.canRevert) {
       footer.push(`<button type="button" class="btn btn-outline" data-report-action="revert" data-report-id="${report.id}">Reactivar informe</button>`);
     }
+    if (state.permissions.manageSettings && report.status === 'Pendiente' && report.stage === 'descargo' && !report.statementSubmittedAt) {
+      footer.push(`<button type="button" class="btn btn-outline" data-report-action="prorroga" data-report-id="${report.id}">Prorrogar plazo</button>`);
+    }
     $('#detalle-footer').innerHTML = footer.join('');
   }
 
@@ -984,6 +1030,10 @@
     }
     if (action === 'pdf') {
       await downloadReportPdf(numericId);
+      return;
+    }
+    if (action === 'prorroga') {
+      openProrroga(numericId);
       return;
     }
     if (action === 'annul') {
@@ -1017,6 +1067,42 @@
       } catch (error) {
         toast(errorMessage(error), 'error');
       }
+    }
+  }
+
+  function openProrroga(id) {
+    $('#prorroga-report-id').value = String(id);
+    $('#prorroga-dias').value = '3';
+    $('#prorroga-message').innerHTML = '';
+    openModal('modal-prorroga');
+  }
+
+  async function submitProrroga(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const id = Number($('#prorroga-report-id').value);
+    const extraDays = Number($('#prorroga-dias').value);
+    if (!Number.isInteger(extraDays) || extraDays < 1 || extraDays > 30) {
+      setMessage('prorroga-message', 'error', 'Ingrese entre 1 y 30 días.');
+      return;
+    }
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      const result = await api.reports.extendStatement(id, extraDays);
+      closeModal('modal-prorroga');
+      await reloadSchoolData();
+      if (state.currentReport && Number(state.currentReport.id) === id) {
+        state.currentReport = result.report;
+        renderReportDetail(result.report);
+        openModal('modal-detalle');
+      }
+      toast(`Plazo prorrogado ${extraDays} día(s). Se notificó al alumno y a la familia.`, 'success');
+    } catch (error) {
+      setMessage('prorroga-message', 'error', errorMessage(error));
+    } finally {
+      if (submit) submit.disabled = false;
     }
   }
 
@@ -1200,12 +1286,17 @@
       hintText = `El informe se registrará a nombre de ${state.me.fullName} (${state.me.roleName || roleName(state.me.roleCode)}). ` +
         'Sólo verá los alumnos de los cursos asignados a su rol.';
     } else if (state.me.roleCode === 'ALUMNO') {
-      hintText = `Descargo habilitado${report.statementDeadline ? ` hasta el ${fmtDate(report.statementDeadline)}` : ''}. ` +
-        'Al enviarlo, el informe avanzará a la etapa de consejos y el texto no podrá editarse.';
+      const ds = deadlineState(report);
+      hintText = `Plazo: ${report.statementDeadline ? fmtDateTime(report.statementDeadline) : 'sin plazo'} (${DEADLINE_LABELS[ds] || ds}). `;
+      hintText += ds === 'vencido'
+        ? 'El plazo venció; la administración puede autorizar una prórroga. '
+        : 'Al enviar el descargo, el informe avanzará a consejos y el texto no podrá editarse.';
     } else if (state.me.roleCode === 'PRECEPTOR') {
       hintText = 'Sólo se habilitan las observaciones de preceptoría. Los demás campos son de lectura.';
-    } else if (['PAT', 'DOE'].includes(state.me.roleCode)) {
-      hintText = 'Sólo se habilita el informe PAT / Consejo de Aula. Los demás campos son de lectura.';
+    } else if (state.me.roleCode === 'DOE') {
+      hintText = 'Sólo se habilita el informe del equipo DOE. Los demás campos son de lectura.';
+    } else if (state.me.roleCode === 'PROFESOR' && state.permissions.patFunction) {
+      hintText = 'La función PAT habilita únicamente la consulta de este informe para seguimiento. No puede modificarlo.';
     } else if (['RECTOR', 'VICERRECTOR', 'REGENTE', 'SUBREGENTE', 'JEFE_TALLER'].includes(state.me.roleCode)) {
       hintText = 'Puede completar el dictamen. Si indica la fecha del dictamen, el informe quedará Resuelto y se registrarán las notificaciones seleccionadas.';
     } else {
@@ -1229,6 +1320,7 @@
     $('#form-sections').innerHTML = isCreate
       ? renderCreateReportSections()
       : renderEditReportSections(report, editable);
+    updateCharCounter($('#field-student_text'));
 
     signaturePad = null;
     requestAnimationFrame(() => setupSignaturePad(report?.directorSignatureImage || null));
@@ -1237,12 +1329,21 @@
     if (isCreate) submit.textContent = 'Crear informe';
     else if (state.me.roleCode === 'ALUMNO') submit.textContent = 'Enviar descargo';
     else if (state.me.roleCode === 'PRECEPTOR') submit.textContent = 'Guardar observaciones';
-    else if (['PAT', 'DOE'].includes(state.me.roleCode)) submit.textContent = 'Guardar informe PAT';
+    else if (state.me.roleCode === 'DOE') submit.textContent = 'Guardar informe DOE';
     else if (['RECTOR', 'VICERRECTOR', 'REGENTE', 'SUBREGENTE', 'JEFE_TALLER'].includes(state.me.roleCode)) submit.textContent = 'Guardar dictamen';
     else submit.textContent = 'Guardar cambios';
 
+    // La función PAT y los roles de consulta no tienen campos editables:
+    // se les muestra el formulario en modo lectura, sin botón de guardado.
+    if (!isCreate && !editable.length) {
+      submit.classList.add('hidden');
+      $('#btn-form-reset')?.classList.add('hidden');
+    } else {
+      submit.classList.remove('hidden');
+    }
+
     const reset = $('#btn-form-reset');
-    if (reset) reset.classList.toggle('hidden', !isCreate && !report);
+    if (reset && (isCreate || editable.length)) reset.classList.toggle('hidden', !isCreate && !report);
     $('#form-message').innerHTML = '';
     const disabled = isCreate && state.students.length === 0;
     submit.disabled = disabled;
@@ -1437,9 +1538,16 @@
         <input type="text" id="field-reason" maxlength="300" value="${esc(value || '')}" required></div>`;
     }
     if (field === 'description' || field === 'student_text') {
+      const max = Number(state.meta?.settings?.statementMaxLength || state.meta?.statementMaxLength) || 5000;
+      const counter = field === 'student_text'
+        ? `<div class="char-counter" id="counter-student_text" data-counter-for="field-student_text" aria-live="polite">${String(value || '').length} / ${max} caracteres · quedan ${max - String(value || '').length}</div>`
+        : '';
+      const help = field === 'student_text'
+        ? '<p class="form-help">Máximo visible y validado en el servidor. Al enviar el descargo no podrá modificar este texto.</p>'
+        : '';
       return `<div class="form-group"><label for="field-${field}">${esc(label)} *</label>
-        <textarea id="field-${field}" rows="${field === 'description' ? 5 : 6}" maxlength="5000" required>${esc(value || '')}</textarea>
-        ${field === 'student_text' ? '<p class="form-help">Al enviar el descargo no podrá modificar este texto.</p>' : ''}</div>`;
+        <textarea id="field-${field}" rows="${field === 'description' ? 5 : 6}" maxlength="${max}" ${field === 'student_text' ? 'aria-describedby="counter-student_text"' : ''} required>${esc(value || '')}</textarea>
+        ${counter}${help}</div>`;
     }
     if (field === 'council_notes' || field === 'additional_notes' || field === 'preceptor_notes' || field === 'pat_notes') {
       return `<div class="form-group"><label for="field-${field}">${esc(label)}</label>
@@ -1772,7 +1880,7 @@
           <span class="small muted">${esc(user.email)}</span>
           ${user.mustChangePassword ? '<br><span class="small" style="color:#92400e;">Cambio de contraseña pendiente</span>' : ''}
         </td>
-        <td><span class="badge-role">${esc(user.roleName)}</span></td>
+        <td><span class="badge-role">${esc(user.roleName)}</span>${user.isPat ? '<span class="badge-pat">PAT</span>' : ''}</td>
         <td class="small">${esc(assignmentLabel(user))}</td>
         <td>
           <span class="status-badge ${user.isActive ? 'status-resuelto' : 'status-anulado'}">${user.isActive ? 'Activa' : 'Inactiva'}</span>
@@ -1814,6 +1922,20 @@
         .map(course => `<label class="assignment-option"><input type="checkbox" name="user-course" value="${course.id}" ${user?.courseIds?.includes(course.id) ? 'checked' : ''}> ${esc(course.label)}</label>`)
         .join('') || '<span class="empty-inline">No hay cursos activos.</span>';
 
+      $('#usuario-pat-cursos').innerHTML = state.courses
+        .filter(course => course.isActive !== false)
+        .map(course => `<label class="assignment-option"><input type="checkbox" name="user-pat-course" value="${course.id}" ${user?.patCourseIds?.includes(course.id) ? 'checked' : ''}> ${esc(course.label)}</label>`)
+        .join('') || '<span class="empty-inline">No hay cursos activos.</span>';
+      $('#usuario-pat').checked = Boolean(user?.isPat || user?.patCourseIds?.length);
+    if ($('#usuario-pat')) {
+      $('#usuario-pat').onchange = () => {
+        if (!$('#usuario-pat').checked) {
+          $$('input[name="user-pat-course"]').forEach(input => { input.checked = false; });
+        }
+        $('#usuario-pat-cursos')?.classList.toggle('hidden', !$('#usuario-pat').checked);
+      };
+    }
+
       const activeStudents = state.adminStudents.filter(student => student.isActive);
       $('#usuario-alumno').innerHTML = `<option value="">Seleccione un legajo…</option>` + activeStudents
         .map(student => `<option value="${student.id}" ${user?.studentId === student.id ? 'selected' : ''}>${esc(student.name)} · DNI ${esc(student.dni)} · ${esc(student.course)}</option>`)
@@ -1837,6 +1959,10 @@
     $('#usuario-alumno-group').classList.toggle('hidden', roleCode !== 'ALUMNO');
     $('#usuario-tutores-group').classList.toggle('hidden', roleCode !== 'TUTOR');
     $('#usuario-cursos-group').classList.toggle('hidden', roleCode === 'ALUMNO' || roleCode === 'TUTOR' || roleCode === 'ADMINISTRADOR');
+    const canPat = roleCode === 'PROFESOR' && Boolean(state.permissions.managePatFunctions);
+    $('#usuario-pat-group')?.classList.toggle('hidden', !canPat);
+    if (!canPat && $('#usuario-pat')) $('#usuario-pat').checked = false;
+    $('#usuario-pat-cursos')?.classList.toggle('hidden', !$('#usuario-pat')?.checked);
     $('#usuario-scope-all').closest('.form-group')?.classList.toggle('hidden', !GLOBAL_SCOPE_ROLES.includes(roleCode));
     if (roleCode === 'ADMINISTRADOR') $('#usuario-scope-all').checked = true;
   }
@@ -1861,7 +1987,12 @@
       scopeAll: GLOBAL_SCOPE_ROLES.includes(roleCode) ? $('#usuario-scope-all').checked : false,
       courseIds: $$('input[name="user-course"]:checked').map(input => Number(input.value)),
       studentId: roleCode === 'ALUMNO' ? Number($('#usuario-alumno').value) || null : null,
-      tutorStudentIds: roleCode === 'TUTOR' ? $$('input[name="user-tutor-student"]:checked').map(input => Number(input.value)) : []
+      tutorStudentIds: roleCode === 'TUTOR' ? $$('input[name="user-tutor-student"]:checked').map(input => Number(input.value)) : [],
+      // La función PAT se registra en pat_assignments. Sólo aplica a docentes
+      // y se envía siempre (even vacía) para permitir quitarla al editar.
+      patCourseIds: roleCode === 'PROFESOR'
+        ? $$('input[name="user-pat-course"]:checked').map(input => Number(input.value))
+        : []
     };
     if (isEdit) payload.isActive = $('#usuario-active').checked;
     else payload.password = password;
@@ -2107,6 +2238,9 @@
     state.settings = result.settings || {};
     $('#setting-school-name').value = state.settings.school_name || state.schoolName || '';
     $('#setting-statement-days').value = Number(state.settings.statement_days) || 5;
+    $('#setting-statement-max-days').value = Number(state.settings.statement_max_days) || 30;
+    $('#setting-statement-max-length').value = Number(state.settings.statement_max_length) || 5000;
+    $('#setting-deadline-warning-hours').value = Number(state.settings.deadline_warning_hours) || 24;
     setMessage('settings-message', '', '');
   }
 
@@ -2117,7 +2251,10 @@
     try {
       await api.settings.update({
         schoolName: $('#setting-school-name').value.trim(),
-        statementDays: Number($('#setting-statement-days').value)
+        statementDays: Number($('#setting-statement-days').value),
+        statementMaxDays: Number($('#setting-statement-max-days').value),
+        statementMaxLength: Number($('#setting-statement-max-length').value),
+        deadlineWarningHours: Number($('#setting-deadline-warning-hours').value)
       });
       state.schoolName = $('#setting-school-name').value.trim();
       setMessage('settings-message', 'success', 'Configuración guardada.');
@@ -2352,6 +2489,7 @@
       ['Nombre completo', me.fullName || '—'],
       ['Mail institucional', me.email || '—'],
       ['Rol', me.roleName || roleName(me.roleCode)],
+      ...(me.isPat ? [['Función PAT', (me.patCourseIds || []).map(id => courseLabel(courseById(id))).join(', ') || 'Activa en cursos asignados']] : []),
       ['Ámbito', scope],
       ['Último acceso', me.lastLoginAt ? fmtDateTime(me.lastLoginAt) : '—'],
       ['Cuenta creada', me.createdAt ? fmtDateTime(me.createdAt) : '—']
@@ -2360,10 +2498,24 @@
       <div class="account-field"><div class="field-label">${esc(label)}</div><div class="field-val">${esc(value)}</div></div>`).join('');
   }
 
+  function skipForcedPassword() {
+    if (!state.demoMode || !state.forcedPassword) return;
+    state.forcedPassword = false;
+    $('#modal-password').classList.remove('forced');
+    closeModal('modal-password');
+    toast('Continúa con la contraseña demo. Puede cambiarla desde Mi cuenta cuando lo desee.', 'success');
+  }
+
   function openPasswordModal(forced) {
     state.forcedPassword = Boolean(forced);
     $('#modal-password').classList.toggle('forced', state.forcedPassword);
     $('#password-forced-note').classList.toggle('hidden', !state.forcedPassword);
+    if (state.demoMode && state.forcedPassword) {
+      $('#password-forced-note').textContent = 'En la instancia de demostración puede continuar con la contraseña 123 o cambiarla ahora. En uso institucional el cambio sería obligatorio.';
+    } else {
+      $('#password-forced-note').textContent = 'Por seguridad, debe cambiar la contraseña temporal antes de continuar.';
+    }
+    $('#btn-skip-password')?.classList.toggle('hidden', !(state.demoMode && state.forcedPassword));
     $('#pwd-current').value = '';
     $('#pwd-new').value = '';
     $('#pwd-confirm').value = '';
@@ -2519,7 +2671,7 @@
       state.reportTab = button.dataset.tab;
       renderReports();
     });
-    ['filtro-busqueda', 'filtro-gravedad', 'filtro-curso', 'filtro-etapa'].forEach(id => {
+    ['filtro-busqueda', 'filtro-gravedad', 'filtro-curso', 'filtro-etapa', 'filtro-vencimiento'].forEach(id => {
       document.getElementById(id)?.addEventListener('input', renderReports);
       document.getElementById(id)?.addEventListener('change', renderReports);
     });
@@ -2628,6 +2780,11 @@
     $('#changePasswordForm')?.addEventListener('submit', submitPasswordChange);
     $('#resetPasswordForm')?.addEventListener('submit', submitResetPassword);
     $('#convivenciaForm')?.addEventListener('submit', submitReportForm);
+    $('#convivenciaForm')?.addEventListener('input', event => {
+      if (event.target.id === 'field-student_text') updateCharCounter(event.target);
+    });
+    $('#btn-skip-password')?.addEventListener('click', skipForcedPassword);
+    $('#prorrogaForm')?.addEventListener('submit', submitProrroga);
     $('#btn-form-reset')?.addEventListener('click', () => {
       if (state.editingReport) renderReportForm(state.editingReport);
       else renderReportForm(null);

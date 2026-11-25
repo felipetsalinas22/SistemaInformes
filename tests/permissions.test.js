@@ -47,19 +47,17 @@ function report(overrides = {}) {
   };
 }
 
-test('PAT: ve y comenta sólo dentro de su curso, sin crear ni dictaminar', () => {
-  const pat = user(ROLES.PAT);
-  const row = report();
+test('PAT: función de consulta asignada a un docente, sin permisos de modificación', () => {
+  const pat = user(ROLES.PROFESOR, { pat_course_ids: [1] });
+  const row = report({ created_by: 123 });
 
   assert.equal(canViewReport(pat, row), true);
-  assert.deepEqual(editableFields(pat, row), ['pat_notes']);
-  assert.deepEqual(editableFields(pat, report({ stage: 'consejos' })), ['pat_notes']);
-  assert.deepEqual(editableFields(pat, report({ stage: 'dictamen' })), []);
-  assert.deepEqual(editableFields(pat, report({ status: 'Resuelto' })), []);
-  assert.deepEqual(editableFields(pat, report({ student_course_id: 2 })), []);
+  assert.deepEqual(editableFields(pat, row), []);
+  assert.deepEqual(editableFields(pat, report({ created_by: 123, stage: 'consejos' })), []);
+  assert.deepEqual(editableFields(pat, report({ created_by: 123, status: 'Resuelto' })), []);
 
-  assert.equal(canViewReport(pat, report({ student_course_id: 2 })), false);
-  assert.equal(canCreateReports(pat), false);
+  assert.equal(canViewReport(pat, report({ created_by: 123, student_course_id: 2 })), false);
+  assert.equal(canCreateReports(pat), true);
   assert.equal(canAnnullReport(pat, row), false);
   assert.equal(canViewReportHistory(pat), true);
   assert.equal(canViewNotificationsModule(pat), true);
@@ -74,9 +72,13 @@ test('PAT: ve y comenta sólo dentro de su curso, sin crear ni dictaminar', () =
   assert.ok(readable.includes('notify_student'));
 
   const actions = reportActions(pat, row);
-  assert.equal(actions.canEdit, true);
-  assert.equal(actions.editLabel, 'Completar PAT');
+  assert.equal(actions.canEdit, false);
   assert.equal(actions.canDownload, true);
+
+  // Ser PAT no quita los permisos habituales del docente sobre sus informes.
+  const own = report({ created_by: pat.id });
+  assert.equal(canViewReport(pat, own), true);
+  assert.ok(editableFields(pat, own).includes('reason'));
 });
 
 test('Profesor: crea y edita sus propios informes y no ve los ajenos', () => {
