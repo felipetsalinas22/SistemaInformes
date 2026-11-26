@@ -410,7 +410,7 @@
             color: #fff;
             transform: rotate(90deg);
         }
-        #modal-password .modal-header { justify-content: flex-start; gap: 12px; }
+        #modal-password .modal-header { justify-content: space-between; gap: 12px; }
 
         /* ── MODAL DETALLE — refined sections ── */
         .modal-section-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #8a8a80; margin-bottom: 8px; margin-top: 16px; }
@@ -431,20 +431,19 @@
         .modal-meta-cell .meta-label { font-size: 0.67rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #8a8a80; margin-bottom: 3px; }
         .modal-meta-cell .meta-val { font-size: 0.85rem; font-weight: 600; color: #1b1b19; }
 
-        /* Bloque PAT claramente diferenciado dentro del detalle del informe. */
+        /* Bloque PAT sobrio: sólo identifica al docente responsable del curso. */
         .pat-highlight {
-            margin-top: 18px;
-            padding: 14px 16px;
-            border: 1px solid var(--amarillo-escudo-borde);
-            border-left: 5px solid var(--dorado-oscuro);
-            border-radius: 8px;
-            background: linear-gradient(135deg, #fffdf0 0%, var(--amarillo-escudo-suave) 100%);
+            margin-top: 12px;
+            padding: 9px 12px;
+            border: 1px solid #ebe7d8;
+            border-left: 3px solid var(--dorado-oscuro);
+            border-radius: 6px;
+            background: #faf9f3;
         }
-        .pat-highlight h4 { font-size: .88rem; font-weight: 800; color: var(--amarillo-escudo-texto); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
-        .pat-highlight .pat-explanation { font-size: .76rem; color: #5c5220; line-height: 1.5; margin-bottom: 10px; }
-        .pat-highlight .pat-teacher { display: flex; align-items: center; gap: 8px; font-size: .84rem; font-weight: 700; color: var(--negro-institucional-oscuro); margin-bottom: 8px; }
-        .pat-highlight .pat-teacher-badge { background: var(--negro-institucional); color: var(--amarillo-escudo-suave); border-radius: 999px; padding: 2px 9px; font-size: .68rem; letter-spacing: .04em; }
-        .pat-highlight .modal-field-box { background: #fffef8; border-color: var(--amarillo-escudo-borde); }
+        .pat-highlight h4 { font-size: .76rem; font-weight: 700; color: #5c5220; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 5px; }
+        .pat-highlight .pat-teacher { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: #4a463e; margin-bottom: 6px; }
+        .pat-highlight .pat-teacher-badge { background: #fdf1cf; color: #6b5407; border: 1px solid var(--dorado-oscuro); border-radius: 999px; padding: 2px 8px; font-size: .64rem; letter-spacing: .03em; }
+        .pat-highlight .modal-field-box { background: #fff; border-color: #ebe7d8; }
 
         .detail-section { scroll-margin-top: 12px; border-radius: 8px; transition: background .25s, box-shadow .25s; }
         .detail-section.detail-section-highlight { background: #fffdf0; box-shadow: 0 0 0 3px rgba(239,227,117,.55); }
@@ -1337,8 +1336,8 @@
 <div class="modal-overlay" id="modal-password" role="dialog" aria-modal="true" aria-labelledby="modal-password-title">
     <div class="modal-box" style="max-width:470px;">
         <div class="modal-header">
-            <button type="button" class="btn-close" data-close-modal="modal-password" aria-label="Cerrar y hacerlo después">✕</button>
             <h3 id="modal-password-title">Cambiar contraseña</h3>
+            <button type="button" class="btn-close" data-close-modal="modal-password" aria-label="Cerrar y hacerlo después">✕</button>
         </div>
         <div class="modal-body">
             <div id="password-forced-note" class="form-warning hidden">

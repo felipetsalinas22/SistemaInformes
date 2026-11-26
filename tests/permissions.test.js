@@ -95,6 +95,7 @@ test('Profesor: crea y edita sus propios informes y no ve los ajenos', () => {
   assert.ok(editable.includes('reason'));
   assert.ok(editable.includes('description'));
   assert.ok(editable.includes('issue_date'));
+  assert.ok(editable.includes('issuer_signature_image'));
   assert.ok(!editable.includes('severity'));
   assert.ok(!editable.includes('pat_notes'));
 
@@ -108,7 +109,7 @@ test('Alumno: descargo propio, dentro del plazo y sólo una vez', () => {
   assert.equal(canViewReport(student, own), true);
   assert.equal(canViewReport(student, report({ student_id: 8 })), false);
   assert.equal(statementIsOpen(student, own), true);
-  assert.deepEqual(editableFields(student, own), ['student_text']);
+  assert.deepEqual(editableFields(student, own), ['student_text', 'alumno_signature_image']);
   assert.equal(statementIsOpen(student, report({ statement_submitted_at: new Date() })), false);
   assert.equal(statementIsOpen(student, report({ statement_deadline: new Date(Date.now() - 1000) })), false);
 
@@ -125,7 +126,7 @@ test('Dirección: dictamina, firma y anula dentro de su ámbito', () => {
   assert.equal(canViewReport(rector, report({ student_course_id: 99 })), true);
 
   const editable = editableFields(rector, report());
-  for (const field of ['council_notes', 'additional_notes', 'severity', 'other_considerations', 'director_date', 'director_signature_image', 'notify_student', 'notify_parent']) {
+  for (const field of ['council_notes', 'additional_notes', 'severity', 'other_considerations', 'director_date', 'issuer_signature_image', 'director_signature_image', 'notify_student', 'notify_parent']) {
     assert.ok(editable.includes(field), `falta ${field}`);
   }
   assert.equal(canAnnullReport(rector, report()), true);
@@ -137,7 +138,7 @@ test('Consulta y familias no editan contenido pedagógico', () => {
   const tutor = user(ROLES.TUTOR, { tutor_student_ids: [7] });
 
   assert.deepEqual(editableFields(secretary, report()), []);
-  assert.deepEqual(editableFields(tutor, report()), []);
+  assert.deepEqual(editableFields(tutor, report()), ['familia_signature_image']);
   assert.equal(canViewReport(tutor, report()), true);
   assert.equal(canViewReport(tutor, report({ student_id: 8 })), false);
   assert.equal(canViewReport(secretary, report()), true);

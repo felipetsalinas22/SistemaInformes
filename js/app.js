@@ -10,8 +10,8 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
-  // Pad de firma manuscrita del formulario de dictamen.
-  let signaturePad = null;
+  // Pads de firma manuscrita (uno por cada parte interviniente).
+  const signaturePads = new Map();
 
   const state = {
     me: null,
@@ -79,7 +79,13 @@
 
   const COURSE_ROLES = ['PROFESOR', 'PRECEPTOR', 'DOE'];
   const GLOBAL_SCOPE_ROLES = ['RECTOR', 'VICERRECTOR', 'REGENTE', 'SUBREGENTE', 'JEFE_TALLER', 'SECRETARIA', 'ASESORIA', 'GERENTE'];
-  const CREATION_FIELDS = ['reason', 'severity', 'description', 'issue_date'];
+  const CREATION_FIELDS = ['reason', 'severity', 'description', 'issue_date', 'issuer_signature_image'];
+  const SIGNATURE_FIELDS = Object.freeze([
+    { field: 'issuer_signature_image', prop: 'issuerSignatureImage', label: 'Firma de quien realiza el informe', help: 'Dibuje su firma como emisor del informe.' },
+    { field: 'alumno_signature_image', prop: 'alumnoSignatureImage', label: 'Firma del alumno/a', help: 'Dibuje su firma al presentar el descargo.' },
+    { field: 'familia_signature_image', prop: 'familiaSignatureImage', label: 'Firma de la familia', help: 'Dibuje su firma al tomar conocimiento del informe.' },
+    { field: 'director_signature_image', prop: 'directorSignatureImage', label: 'Firma del regente / autoridad', help: 'Dibuje su firma al emitir el dictamen.' }
+  ]);
   const SEVERITY_OPTIONS = ['LEVE', 'GRAVE', 'MUY GRAVE'];
 
   const FIELD_LABELS = {
@@ -94,6 +100,10 @@
     severity: 'Clasificación de la falta',
     other_considerations: 'Medida pedagógica',
     director_date: 'Fecha del dictamen',
+    issuer_signature_image: 'Firma de quien realiza el informe',
+    alumno_signature_image: 'Firma del alumno/a',
+    familia_signature_image: 'Firma de la familia',
+    director_signature_image: 'Firma del regente / autoridad',
     notify_student: 'Notificar al alumno/a',
     notify_parent: 'Notificar a la familia'
   };
@@ -1134,10 +1144,15 @@
       ? '<div class="form-warning" style="margin-bottom:14px;">Este informe está anulado. Se conserva únicamente por trazabilidad institucional.</div>'
       : '';
 
-    const signature = report.directorSignatureImage
+    const signed = SIGNATURE_FIELDS.filter(item => report[item.prop]);
+    const signature = signed.length
       ? `<div style="margin-top:16px;">
-          <div class="modal-section-title">Firma de la autoridad</div>
-          <div class="signature-preview"><img src="${esc(report.directorSignatureImage)}" alt="Firma de la autoridad competente"></div>
+          <div class="modal-section-title">Firmas registradas</div>
+          ${signed.map(item => `
+            <div style="margin-bottom:10px;">
+              <div class="meta-label" style="margin-bottom:4px;">${esc(item.label)}</div>
+              <div class="signature-preview"><img src="${esc(report[item.prop])}" alt="${esc(item.label)}"></div>
+            </div>`).join('')}
         </div>`
       : '';
 
@@ -1145,7 +1160,6 @@
     const patBlock = (readable.has('pat_notes') || patTeachers.length)
       ? `<div id="detalle-pat" class="pat-highlight">
           <h4>Función PAT / Consejo de Aula</h4>
-          <p class="pat-explanation">El PAT acompaña y hace seguimiento del curso. No dictamina ni modifica el informe: sólo registra su intervención para orientar al alumno/a y a la familia.</p>
           <div class="pat-teacher"><span class="pat-teacher-badge">PAT</span><span>Docente responsable: ${esc(patTeachers.join(', ') || 'Asignación institucional del curso')}</span></div>
           ${readable.has('pat_notes') && report.patNotes ? `<div class="modal-section-title">Informe PAT / Consejo de Aula</div><div class="modal-field-box">${esc(report.patNotes)}</div>` : ''}
         </div>`
@@ -1466,7 +1480,7 @@
       hintText = `Plazo: ${report.statementDeadline ? fmtDateTime(report.statementDeadline) : 'sin plazo'} (${DEADLINE_LABELS[ds] || ds}). `;
       hintText += ds === 'vencido'
         ? 'El plazo venció; la administración puede autorizar una prórroga. '
-        : 'Al enviar el descargo, el informe avanzará a consejos y el texto no podrá editarse.';
+        : 'Al enviar el descargo con su firma, el informe avanzará a consejos y el texto no podrá editarse.';
     } else if (state.me.roleCode === 'PRECEPTOR') {
       hintText = 'Sólo se habilitan las observaciones de preceptoría. Los demás campos son de lectura.';
     } else if (state.me.roleCode === 'DOE') {
@@ -1498,8 +1512,8 @@
       : renderEditReportSections(report, editable);
     updateCharCounter($('#field-student_text'));
 
-    signaturePad = null;
-    requestAnimationFrame(() => setupSignaturePad(report?.directorSignatureImage || null));
+    signaturePads.clear();
+    requestAnimationFrame(() => setupAllSignaturePads(report));
 
     const submit = $('#submitBtn');
     if (isCreate) submit.textContent = 'Crear informe';
@@ -1532,11 +1546,27 @@
     modal.dataset.mode = isCreate ? 'create' : 'edit';
   }
 
-  function setupSignaturePad(existingData) {
-    const canvas = $('#signature-pad');
-    signaturePad = null;
-    if (!canvas) return;
+  function signatureKey(field) {
+    return `${field}:${state.editingReport?.id || 'new'}`;
+  }
 
+  function setupAllSignaturePads(report) {
+    const modal = $('#modal-informe');
+    $$('canvas[data-signature-field]', modal).forEach(canvas => {
+      const field = canvas.dataset.signatureField;
+      const item = SIGNATURE_FIELDS.find(s => s.field === field);
+      setupSignaturePad(
+        field,
+        canvas,
+        $(`#signature-clear-${field}`, modal),
+        $(`#signature-status-${field}`, modal),
+        item ? report?.[item.prop] : null
+      );
+    });
+  }
+
+  function setupSignaturePad(field, canvas, clearButton, status, existingData) {
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -1562,9 +1592,8 @@
       hasInk: Boolean(existingData),
       existing: existingData || null
     };
-    signaturePad = pad;
+    signaturePads.set(signatureKey(field), pad);
 
-    const status = $('#signature-status');
     const updateStatus = () => {
       if (!status) return;
       status.textContent = pad.hasInk
@@ -1630,7 +1659,7 @@
     canvas.addEventListener('pointercancel', endStroke);
     canvas.addEventListener('pointerleave', endStroke);
 
-    $('#signature-clear')?.addEventListener('click', () => {
+    clearButton?.addEventListener('click', () => {
       ctx.clearRect(0, 0, width, height);
       pad.dirty = true;
       pad.hasInk = false;
@@ -1639,16 +1668,33 @@
     });
   }
 
-  function signatureHasInk() {
-    return Boolean(signaturePad && signaturePad.hasInk);
+  function signatureHasInk(field) {
+    const pad = signaturePads.get(signatureKey(field));
+    return Boolean(pad && pad.hasInk);
   }
 
-  function currentSignatureData() {
-    if (!signaturePad) return '';
-    if (signaturePad.dirty) {
-      return signaturePad.hasInk ? signaturePad.canvas.toDataURL('image/png') : '';
+  function currentSignatureData(field) {
+    const pad = signaturePads.get(signatureKey(field));
+    if (!pad) return '';
+    if (pad.dirty) {
+      return pad.hasInk ? pad.canvas.toDataURL('image/png') : '';
     }
-    return signaturePad.existing || '';
+    return pad.existing || '';
+  }
+
+  function signatureBlockHtml(field, label, help) {
+    return `
+      <div class="section-block signature-block">
+        <h3>${esc(label)}</h3>
+        <p class="form-help">${esc(help)} Se incluirá en el PDF.</p>
+        <div class="signature-pad-shell">
+          <canvas id="signature-pad-${field}" data-signature-field="${field}" class="signature-pad" aria-label="${esc(label)}"></canvas>
+        </div>
+        <div class="signature-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="signature-clear-${field}">Limpiar firma</button>
+          <span id="signature-status-${field}" class="signature-status">Dibuje la firma dentro del recuadro.</span>
+        </div>
+      </div>`;
   }
 
   function renderCreateReportSections() {
@@ -1684,7 +1730,9 @@
           <input type="date" id="field-issue_date" max="${todayInput()}" value="${todayInput()}" required>
           <p class="form-help">La fecha no puede ser futura.</p>
         </div>
-      </div>`;
+      </div>
+      ${signatureBlockHtml('issuer_signature_image', SIGNATURE_FIELDS[0].label, SIGNATURE_FIELDS[0].help)}
+    `;
   }
 
   function editableFieldHtml(field, report) {
@@ -1760,25 +1808,14 @@
       html += '</div>';
     });
 
-    if (editable.includes('director_signature_image')) {
-      html += `
-        <div class="section-block signature-block">
-          <h3>Firma de la autoridad</h3>
-          <p class="form-help">Dibuje su firma con el mouse o el dedo. Se incluirá en el PDF al finalizar el informe.</p>
-          <div class="signature-pad-shell">
-            <canvas id="signature-pad" class="signature-pad" aria-label="Firma de la autoridad competente"></canvas>
-          </div>
-          <div class="signature-actions">
-            <button type="button" class="btn btn-outline btn-sm" id="signature-clear">Limpiar firma</button>
-            <span id="signature-status" class="signature-status">Dibuje la firma dentro del recuadro.</span>
-          </div>
-        </div>`;
-    }
+    SIGNATURE_FIELDS.forEach(item => {
+      if (editable.includes(item.field)) html += signatureBlockHtml(item.field, item.label, item.help);
+    });
     return html;
   }
 
   function getFieldValue(field) {
-    if (field === 'director_signature_image') return currentSignatureData();
+    if (field.endsWith('_signature_image')) return currentSignatureData(field);
     if (field === 'severity') {
       return $(`input[name="field-severity"]:checked`)?.value || '';
     }
@@ -1813,12 +1850,16 @@
       if (!window.confirm('¿Confirma el envío del descargo? Una vez enviado no podrá modificarlo.')) return;
     }
     const finalizing = !isCreate && Boolean(payload.director_date);
-    if (!isCreate && state.formFields.includes('director_signature_image') && finalizing && !signatureHasInk()) {
-      setMessage('form-message', 'error', 'Dibuje la firma de la autoridad antes de finalizar el informe.');
-      return;
+    for (const item of SIGNATURE_FIELDS) {
+      if (!state.formFields.includes(item.field)) continue;
+      if (item.field === 'director_signature_image' && !finalizing) continue;
+      if (!signatureHasInk(item.field)) {
+        setMessage('form-message', 'error', `Firme en el recuadro de ${item.label.toLowerCase()} antes de continuar.`);
+        return;
+      }
     }
-    if ('director_signature_image' in payload && !payload.director_signature_image) {
-      delete payload.director_signature_image;
+    for (const item of SIGNATURE_FIELDS) {
+      if (item.field in payload && !payload[item.field]) delete payload[item.field];
     }
     if (!isCreate && state.formFields.includes('director_date') && payload.director_date) {
       if (!window.confirm('Al guardar con fecha de dictamen, el informe quedará Resuelto y se registrarán las notificaciones marcadas. ¿Confirma?')) return;
@@ -2686,7 +2727,7 @@
     $('#modal-password').classList.toggle('forced', state.forcedPassword);
     $('#password-forced-note').classList.toggle('hidden', !state.forcedPassword);
     if (state.forcedPassword) {
-      $('#password-forced-note').textContent = 'Le recomendamos actualizar la contraseña inicial 123. Si prefiere hacerlo después, cierre el aviso con la ✕ de la esquina superior izquierda.';
+      $('#password-forced-note').textContent = 'Le recomendamos actualizar la contraseña inicial 123. Si prefiere hacerlo después, cierre el aviso con la ✕ de la esquina superior derecha.';
     } else {
       $('#password-forced-note').textContent = 'Por seguridad, debe cambiar la contraseña temporal antes de continuar.';
     }

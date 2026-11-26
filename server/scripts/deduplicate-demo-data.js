@@ -35,7 +35,7 @@ async function main() {
     const protectedId = protectedCourse.rows[0]?.id ?? null;
 
     const studentsResult = await client.query(`
-      SELECT id, first_name, last_name, dni, course_id
+      SELECT id, first_name, last_name, dni, course_id, email
         FROM students ORDER BY id
     `);
     const students = studentsResult.rows;
@@ -43,6 +43,13 @@ async function main() {
     const reservedNames = new Set(
       students.map(row => normalizeName(`${row.first_name} ${row.last_name}`))
     );
+    const userEmails = await client.query(
+      'SELECT lower(email) AS email FROM users WHERE email IS NOT NULL AND student_id IS NOT NULL'
+    );
+    const usedEmails = new Set([
+      ...students.map(row => String(row.email || '').toLowerCase()).filter(Boolean),
+      ...userEmails.rows.map(row => row.email)
+    ]);
 
     let cursor = 0;
     let renamed = 0;
@@ -51,13 +58,22 @@ async function main() {
       const generated = nextGeneratedName(cursor, reservedNames);
       cursor = generated.cursor;
       const fullName = `${generated.first} ${generated.last}`.trim();
+      const oldEmail = String(row.email || '').toLowerCase();
+      if (oldEmail) usedEmails.delete(oldEmail);
+      const emailBase = `${slug(generated.first)}.${slug(generated.last)}`;
+      let email = `${emailBase}@latzina.edu.ar`;
+      let suffix = 2;
+      while (usedEmails.has(email.toLowerCase())) {
+        email = `${emailBase}.${suffix++}@latzina.edu.ar`;
+      }
+      usedEmails.add(email.toLowerCase());
       await client.query(
-        'UPDATE students SET first_name = $1, last_name = $2, updated_at = now() WHERE id = $3',
-        [generated.first, generated.last, row.id]
+        'UPDATE students SET first_name = $1, last_name = $2, email = $3, updated_at = now() WHERE id = $4',
+        [generated.first, generated.last, email, row.id]
       );
       await client.query(
-        'UPDATE users SET full_name = $1, updated_at = now() WHERE student_id = $2',
-        [fullName, row.id]
+        'UPDATE users SET full_name = $1, email = $2, updated_at = now() WHERE student_id = $3',
+        [fullName, email, row.id]
       );
       await client.query(
         `UPDATE reports
@@ -76,7 +92,7 @@ async function main() {
     const emailRows = await client.query(`
       SELECT lower(email) AS email FROM students WHERE email IS NOT NULL
     `);
-    const usedEmails = new Set(emailRows.rows.map(row => row.email));
+    const usedNewEmails = new Set(emailRows.rows.map(row => row.email));
     const roleRows = await client.query('SELECT id, code FROM roles');
     const roleIds = Object.fromEntries(roleRows.rows.map(row => [row.code, row.id]));
     if (!roleIds.ALUMNO) throw new Error('Falta el rol ALUMNO en la base de datos.');
@@ -104,11 +120,11 @@ async function main() {
         const base = `${slug(generated.first)}.${slug(generated.last)}`;
         let email = `${base}@latzina.edu.ar`;
         let suffix = 2;
-        while (usedEmails.has(email.toLowerCase())) {
+        while (usedNewEmails.has(email.toLowerCase())) {
           email = `${base}.${suffix}@latzina.edu.ar`;
           suffix += 1;
         }
-        usedEmails.add(email.toLowerCase());
+        usedNewEmails.add(email.toLowerCase());
 
         const guardian = `familia.${slug(generated.last)}@latzina.edu.ar`;
         const birthYear = 2010 - (6 - course.year);

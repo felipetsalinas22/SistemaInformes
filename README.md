@@ -12,7 +12,7 @@ La dirección del sistema la informa la escuela. No hay autorregistro: la cuenta
 1. Abra la dirección institucional en Edge, Chrome o Firefox actualizado.
 2. Ingrese su **mail institucional** (`@latzina.edu.ar`) y su **contraseña**. Si es tutor/a, también puede usar el correo externo que figura en el legajo de sus alumnos (por ejemplo `@gmail.com`).
 3. Presione **Ingresar**.
-4. Si recibe la contraseña inicial `123`, el sistema le recomendará cambiarla. Puede actualizarla en el momento o cerrar el aviso con la ✕ de la esquina superior izquierda y hacerlo después desde **Mi cuenta**.
+4. Si recibe la contraseña inicial `123`, el sistema le recomendará cambiarla. Puede actualizarla en el momento o cerrar el aviso con la ✕ de la esquina superior derecha y hacerlo después desde **Mi cuenta**.
 
 - Después de **5 intentos fallidos**, la cuenta se bloquea **15 minutos**.
 - La sesión dura aproximadamente **8 horas**. Al terminar, use **Cerrar sesión**; no alcance con cerrar la pestaña.
@@ -91,13 +91,13 @@ Si el informe ya avanzó, no cree un duplicado. Contacte a preceptoría o direcc
 
 ## 7. Detalle, historial y PDF
 
-**Ver detalle** abre la ficha con el alumno, estado, etapa, datos generales, campos del informe, firma de la autoridad e historial. Los botones de la barra de etapas lo llevan a esa sección dentro del mismo informe; no lo cierran.
+**Ver detalle** abre la ficha con el alumno, estado, etapa, datos generales, campos del informe, firmas registradas e historial. Los botones de la barra de etapas lo llevan a esa sección dentro del mismo informe; no lo cierran.
 
 - El curso que muestra el informe es el que tenía el alumno **al momento de crearlo**. Si después cambia de curso, el informe conserva el curso original por trazabilidad.
-- Si hay intervención PAT, aparece un bloque amarillo que explica la función y nombra al docente PAT del curso.
-- **PDF** o **Descargar PDF** genera el archivo en el navegador en una sola página A4, con más espacio entre secciones y las firmas reservadas al final.
-- Si la dirección ya firmó el dictamen, el PDF incluye la firma.
-- El sistema no guarda una copia del PDF: guarda los datos y la firma; el archivo se genera al descargarlo.
+- Si hay intervención PAT, muestra, de forma sobria, el docente responsable de PAT del curso.
+- **PDF** o **Descargar PDF** genera el archivo en el navegador en una sola página A4, con más espacio entre secciones y el bloque de firmas al final.
+- El PDF incluye las firmas que ya se registraron: quien realiza el informe, alumno/a, familia y regente/autoridad. Cada parte firma al completar su etapa.
+- El sistema no guarda una copia del PDF: guarda los datos y las firmas; el archivo se genera al descargarlo.
 
 Trate el PDF como documentación sensible. No lo envíe por WhatsApp, redes sociales o correo personal.
 

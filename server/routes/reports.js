@@ -35,7 +35,7 @@ const REPORT_SELECT = `
   JOIN users creator ON creator.id = r.created_by
 `;
 
-const CREATION_FIELDS = ['student_id', 'reason', 'description', 'issue_date', 'severity'];
+const CREATION_FIELDS = ['student_id', 'reason', 'description', 'issue_date', 'severity', 'issuer_signature_image'];
 const SEVERITY_VALUES = ACTIVE_SEVERITIES;
 const UPDATE_SEVERITY_VALUES = [...ACTIVE_SEVERITIES, 'SUSPENSO'];
 
@@ -173,6 +173,9 @@ function serializeReport(user, row, history = [], warningHours = 24, notificatio
   if (readable.has('additional_notes')) out.additionalNotes = row.additional_notes;
   if (readable.has('other_considerations')) out.otherConsiderations = row.other_considerations;
   if (readable.has('director_date')) out.directorDate = dateOnly(row.director_date);
+  if (readable.has('issuer_signature_image')) out.issuerSignatureImage = row.issuer_signature_image || null;
+  if (readable.has('alumno_signature_image')) out.alumnoSignatureImage = row.alumno_signature_image || null;
+  if (readable.has('familia_signature_image')) out.familiaSignatureImage = row.familia_signature_image || null;
   if (readable.has('director_signature_image')) out.directorSignatureImage = row.director_signature_image || null;
   if (staffView) {
     out.directorSignature = row.director_signature;
@@ -423,6 +426,10 @@ router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 // ── Crear ──────────────────────────────────────────────────────────
+const signatureDataSchema = z.string()
+  .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'La firma debe ser una imagen válida.')
+  .max(2_000_000, 'La imagen de la firma es demasiado grande.');
+
 const createSchema = z.object({
   student_id: z.coerce.number().int().positive(),
   reason: z.string().trim().min(3, 'Indique el motivo del informe.').max(300),
@@ -430,7 +437,8 @@ const createSchema = z.object({
   issue_date: dateSchema,
   severity: z.enum(SEVERITY_VALUES, {
     error: 'Seleccione la clasificación de la falta: Leve, Grave o Muy grave.'
-  })
+  }),
+  issuer_signature_image: signatureDataSchema
 }).strict();
 
 router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
@@ -462,17 +470,19 @@ router.post('/', requireAuth, requireCsrf, asyncHandler(async (req, res) => {
       `INSERT INTO reports
         (student_id, created_by, issuer_name, issuer_role, issuer_email, issue_date, reason, description,
          severity, statement_deadline, student_course_id, student_first_name, student_last_name, student_name,
-         student_dni, student_year, student_division, student_specialty, student_shift, student_legajo)
+         student_dni, student_year, student_division, student_specialty, student_shift, student_legajo,
+         issuer_signature_image)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
                date_trunc('day', now()) + ($10::int * interval '1 day') + interval '23 hours 59 minutes',
-               $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+               $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        RETURNING id`,
       [
         data.student_id, user.id, user.full_name, user.role_name, user.email,
         data.issue_date, data.reason, data.description, data.severity, days,
         student.course_id, student.first_name, student.last_name,
         `${student.first_name} ${student.last_name}`.trim(), student.dni,
-        student.year, student.division, student.specialty, student.shift, student.legajo
+        student.year, student.division, student.specialty, student.shift, student.legajo,
+        data.issuer_signature_image
       ]
     );
     const reportId = inserted.rows[0].id;
@@ -519,9 +529,10 @@ const fieldSchemas = {
   }),
   other_considerations: z.string().max(1000),
   director_date: z.union([dateSchema, z.literal('')]),
-  director_signature_image: z.string()
-    .max(1_500_000, 'La firma es demasiado grande.')
-    .regex(/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/, 'La firma debe ser una imagen PNG válida.'),
+  issuer_signature_image: signatureDataSchema,
+  alumno_signature_image: signatureDataSchema,
+  familia_signature_image: signatureDataSchema,
+  director_signature_image: signatureDataSchema,
   notify_student: z.boolean(),
   notify_parent: z.boolean()
 };
@@ -551,6 +562,9 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
       const max = await statementMaxLength(client);
       if (String(data.student_text).length > max) {
         throw ApiError.badRequest(`El descargo supera el límite de ${max} caracteres.`);
+      }
+      if (!data.alumno_signature_image) {
+        throw ApiError.badRequest('La firma del alumno/a es obligatoria al enviar el descargo.');
       }
     }
     if (data.severity === 'SUSPENSO' && row.severity !== 'SUSPENSO') {
@@ -591,6 +605,19 @@ router.patch('/:id', requireAuth, requireCsrf, asyncHandler(async (req, res) => 
       updates.statement_submitted_at = new Date();
       newStage = 'consejos';
       statementJustSubmitted = true;
+    }
+
+    for (const field of ['issuer_signature_image', 'alumno_signature_image', 'familia_signature_image']) {
+      if (field in data) updates[field] = data[field];
+    }
+    if ('issuer_signature_image' in data) {
+      historyEntries.push({ action: 'FIRMA_EMISOR', description: 'Se actualizó la firma de quien realiza el informe.' });
+    }
+    if ('alumno_signature_image' in data) {
+      historyEntries.push({ action: 'FIRMA_ALUMNO', description: 'Se registró la firma del alumno/a.' });
+    }
+    if ('familia_signature_image' in data) {
+      historyEntries.push({ action: 'FIRMA_FAMILIA', description: 'Se registró la firma de la familia.' });
     }
 
     const dictamenFields = ['council_notes', 'additional_notes', 'severity', 'other_considerations', 'director_date', 'director_signature_image', 'notify_student', 'notify_parent'];

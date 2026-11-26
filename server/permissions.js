@@ -37,6 +37,7 @@ export const ALL_FORM_FIELDS = Object.freeze([
   'student_id', 'reason', 'description', 'issue_date',
   'student_text', 'preceptor_notes', 'pat_notes', 'council_notes',
   'additional_notes', 'severity', 'other_considerations', 'director_date',
+  'issuer_signature_image', 'alumno_signature_image', 'familia_signature_image',
   'director_signature_image', 'notify_student', 'notify_parent'
 ]);
 
@@ -53,7 +54,10 @@ export const FORM_FIELD_LABELS = Object.freeze({
   severity: 'Clasificación de la falta',
   other_considerations: 'Medida pedagógica',
   director_date: 'Fecha del dictamen',
-  director_signature_image: 'Firma de la autoridad',
+  issuer_signature_image: 'Firma de quien realiza el informe',
+  alumno_signature_image: 'Firma del alumno/a',
+  familia_signature_image: 'Firma de la familia',
+  director_signature_image: 'Firma del regente / autoridad',
   notify_student: 'Notificar al alumno',
   notify_parent: 'Notificar a la familia'
 });
@@ -213,15 +217,22 @@ export function editableFields(user, report) {
     editable.add('reason');
     editable.add('description');
     editable.add('issue_date');
+    editable.add('issuer_signature_image');
   }
 
   if (isStudent(user)) {
-    if (statementIsOpen(user, report)) editable.add('student_text');
+    if (statementIsOpen(user, report)) {
+      editable.add('student_text');
+      editable.add('alumno_signature_image');
+    }
     return [...editable];
   }
 
   if (user.role_code === ROLES.PRECEPTOR && hasCourseScope(user, report.student_course_id ?? report.course_id)) {
-    if (['descargo', 'consejos'].includes(report.stage)) editable.add('preceptor_notes');
+    if (['descargo', 'consejos'].includes(report.stage)) {
+      editable.add('preceptor_notes');
+      editable.add('issuer_signature_image');
+    }
   }
 
   // La función PAT es de consulta: nunca habilita edición. El campo PAT lo
@@ -237,6 +248,7 @@ export function editableFields(user, report) {
     editable.add('severity');
     editable.add('other_considerations');
     editable.add('director_date');
+    editable.add('issuer_signature_image');
     editable.add('director_signature_image');
     editable.add('notify_student');
     editable.add('notify_parent');
@@ -244,7 +256,11 @@ export function editableFields(user, report) {
 
   // Consulta y familia no editan contenido pedagógico. El administrador
   // sólo conserva los datos de creación si él mismo generó el informe.
-  if (isReadonly(user) || isTutor(user)) return [];
+  if (isReadonly(user)) return [];
+  if (isTutor(user)) {
+    editable.add('familia_signature_image');
+    return [...editable];
+  }
   return [...editable];
 }
 

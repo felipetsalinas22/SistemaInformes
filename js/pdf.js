@@ -107,8 +107,8 @@
     }
 
     function section(title) {
-      ensure(12);
-      y += 3;
+      ensure(14);
+      y += 4;
       doc.setDrawColor(...NEGRO);
       doc.setLineWidth(0.4);
       doc.line(M, y, M + 4, y);
@@ -116,11 +116,11 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.text(title.toUpperCase(), M + 6, y + 1);
-      y += 7;
+      y += 8;
     }
 
     /** Dibuja texto con salto de línea. x/ancho opcionales para dos columnas. */
-    function block(text, x = M, width = RIGHT - M, fontSize = 8, lineHeight = 4) {
+    function block(text, x = M, width = RIGHT - M, fontSize = 8, lineHeight = 4.2) {
       if (text === undefined || text === null || text === '') return 0;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(fontSize);
@@ -159,10 +159,10 @@
           y += 4;
         }
       }
-      y += 1.8;
+      y += 2.0;
     }
 
-    function small(text, color = GRAY, fontSize = 7, lineHeight = 3.6) {
+    function small(text, color = GRAY, fontSize = 7, lineHeight = 3.8) {
       if (text === undefined || text === null || text === '') return;
       ensure(5);
       doc.setFont('helvetica', 'normal');
@@ -193,6 +193,26 @@
       y += 3;
     }
 
+    function signatureImage(data, x, top, maxWidth, maxHeight) {
+      if (!data || typeof data !== 'string' || !data.startsWith('data:image/')) return;
+      let format = 'PNG';
+      if (data.startsWith('data:image/jpeg')) format = 'JPEG';
+      if (data.startsWith('data:image/webp')) format = 'WEBP';
+      try {
+        const props = doc.getImageProperties(data);
+        const ratio = Number(props.width) / Number(props.height);
+        let drawWidth = maxWidth;
+        let drawHeight = maxWidth / ratio;
+        if (drawHeight > maxHeight) {
+          drawHeight = maxHeight;
+          drawWidth = maxHeight * ratio;
+        }
+        doc.addImage(data, format, x + (maxWidth - drawWidth) / 2, top, drawWidth, drawHeight, undefined, 'FAST');
+      } catch (_) {
+        // Si la imagen no se puede interpretar, se conserva la línea de firma vacía.
+      }
+    }
+
     function footer(text) {
       const total = doc.getNumberOfPages();
       for (let page = 1; page <= total; page += 1) {
@@ -209,7 +229,7 @@
 
     return {
       doc, M, W, RIGHT, PAGE_BOTTOM, ensure, header, section, labelValue, block, small, historyLine,
-      divider, footer,
+      divider, footer, signatureImage,
       get y() { return y; },
       set y(value) { y = value; }
     };
@@ -319,7 +339,7 @@
     if (staff && Array.isArray(data.history) && data.history.length) {
       writer.section('Historial del informe');
       // Se reserva la firma y se recorta el historial para no pasar de página.
-      const room = writer.PAGE_BOTTOM - writer.y - 22;
+      const room = writer.PAGE_BOTTOM - writer.y - 36;
       const maxItems = Math.max(0, Math.floor(room / 3.4));
       const shown = data.history.slice(0, maxItems);
       shown.forEach(item => writer.historyLine(item));
@@ -328,37 +348,31 @@
       }
     }
 
-    // Firma: se reserva espacio real antes de seguir escribiendo para evitar
-    // que quede sola en una segunda página cuando el historial es extenso.
-    const signatureHeight = 18;
-    writer.ensure(signatureHeight + 6);
-    const signatureTop = writer.y + 8;
-
-    if (data.directorSignatureImage) {
-      try {
-        const image = doc.getImageProperties(data.directorSignatureImage);
-        const maxWidth = 50;
-        const maxHeight = 14;
-        const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
-        const width = image.width * scale;
-        const height = image.height * scale;
-        const x = writer.RIGHT - 60 + (60 - width) / 2;
-        const y = signatureTop - height - 1;
-        doc.addImage(data.directorSignatureImage, 'PNG', x, y, width, height, undefined, 'FAST');
-      } catch (_) {
-        // Si el navegador no puede interpretar la firma, el PDF se genera
-        // igualmente con la línea de firma vacía.
-      }
-    }
-
-    doc.setDrawColor(160, 160, 152);
-    doc.setLineWidth(0.3);
-    doc.line(writer.M, signatureTop, writer.M + 60, signatureTop);
-    doc.line(writer.RIGHT - 60, signatureTop, writer.RIGHT, signatureTop);
-    doc.setFontSize(7);
-    doc.setTextColor(...GRAY);
-    doc.text('Firma del emisor / preceptoría', writer.M, signatureTop + 4);
-    doc.text('Dirección / autoridad competente', writer.RIGHT - 60, signatureTop + 4);
+    // Firmas de las cuatro partes intervinientes, en una sola fila.
+    const signatureHeight = 22;
+    writer.ensure(signatureHeight + 4);
+    writer.section('Firmas');
+    const signatureTop = writer.y;
+    const signatureSlots = [
+      ['Quien realiza el informe', data.issuerSignatureImage],
+      ['Alumno/a', data.alumnoSignatureImage],
+      ['Familia', data.familiaSignatureImage],
+      ['Regente / autoridad', data.directorSignatureImage]
+    ];
+    const slotWidth = 42;
+    const slotGap = 4.5;
+    signatureSlots.forEach(([label, image], index) => {
+      const x = writer.M + index * (slotWidth + slotGap);
+      doc.setDrawColor(170, 170, 162);
+      doc.setLineWidth(0.3);
+      doc.line(x, signatureTop + 15, x + slotWidth, signatureTop + 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.4);
+      doc.setTextColor(...GRAY);
+      doc.text(label, x, signatureTop + 18);
+      writer.signatureImage(image, x, signatureTop, slotWidth, 14);
+    });
+    writer.y = signatureTop + signatureHeight;
 
     writer.footer(`Informe de convivencia N° ${data.id} · Generado el ${fmtDateTime(new Date())}`);
     doc.save(`informe-convivencia-${data.id}.pdf`);
