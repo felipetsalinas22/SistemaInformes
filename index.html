@@ -410,16 +410,7 @@
             color: #fff;
             transform: rotate(90deg);
         }
-        .btn-defer-password {
-            background: var(--rojo-institucional);
-            border-color: var(--rojo-institucional);
-            color: #fff;
-        }
-        .btn-defer-password:hover {
-            background: var(--rojo-institucional-oscuro);
-            border-color: var(--rojo-institucional-oscuro);
-            color: #fff;
-        }
+        #modal-password .modal-header { justify-content: flex-start; gap: 12px; }
 
         /* ── MODAL DETALLE — refined sections ── */
         .modal-section-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #8a8a80; margin-bottom: 8px; margin-top: 16px; }
@@ -1346,8 +1337,8 @@
 <div class="modal-overlay" id="modal-password" role="dialog" aria-modal="true" aria-labelledby="modal-password-title">
     <div class="modal-box" style="max-width:470px;">
         <div class="modal-header">
+            <button type="button" class="btn-close" data-close-modal="modal-password" aria-label="Cerrar y hacerlo después">✕</button>
             <h3 id="modal-password-title">Cambiar contraseña</h3>
-            <button type="button" class="btn-close" data-close-modal="modal-password" aria-label="Cerrar">✕</button>
         </div>
         <div class="modal-body">
             <div id="password-forced-note" class="form-warning hidden">
@@ -1369,8 +1360,6 @@
                 </div>
                 <div id="password-message"></div>
                 <div class="modal-footer" style="margin:18px -20px -20px; border-radius:0;">
-                    <button type="button" class="btn btn-defer-password hidden" id="btn-skip-password">Hacerlo más tarde</button>
-                    <button type="button" class="btn btn-secondary" data-close-modal="modal-password">Cancelar</button>
                     <button type="submit" class="btn btn-brand">Actualizar contraseña</button>
                 </div>
             </form>

@@ -12,7 +12,7 @@ La dirección del sistema la informa la escuela. No hay autorregistro: la cuenta
 1. Abra la dirección institucional en Edge, Chrome o Firefox actualizado.
 2. Ingrese su **mail institucional** (`@latzina.edu.ar`) y su **contraseña**. Si es tutor/a, también puede usar el correo externo que figura en el legajo de sus alumnos (por ejemplo `@gmail.com`).
 3. Presione **Ingresar**.
-4. Si recibe la contraseña inicial `123`, el sistema le recomendará cambiarla. Puede elegir **Hacerlo más tarde** o cerrar el aviso con ✕ y cambiarla después desde **Mi cuenta**.
+4. Si recibe la contraseña inicial `123`, el sistema le recomendará cambiarla. Puede actualizarla en el momento o cerrar el aviso con la ✕ de la esquina superior izquierda y hacerlo después desde **Mi cuenta**.
 
 - Después de **5 intentos fallidos**, la cuenta se bloquea **15 minutos**.
 - La sesión dura aproximadamente **8 horas**. Al terminar, use **Cerrar sesión**; no alcance con cerrar la pestaña.

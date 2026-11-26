@@ -12,7 +12,7 @@ Aplicación web para registrar y seguir informes de convivencia de la Escuela T�
 
 ## Datos institucionales de prueba
 
-La nómina de alumnos fue restaurada desde el archivo original provisto. Los informes y las cuentas son institucionales de prueba; el colegio cursa sólo Computación y Automotores en 4.°-6.° año.
+La nómina de alumnos fue restaurada desde el archivo original provisto y se completó con nombres y apellidos argentinos variados: 20 alumnos por división, excepto `6.° 2.° Computación`, que conserva sus 49 legajos históricos sin cambios. Los informes y las cuentas son institucionales de prueba; el colegio cursa sólo Computación y Automotores en 4.°-6.° año.
 
 El administrador puede crear informes y corregir los datos de creación mientras el informe esté pendiente y antes del descargo. No completa el descargo, la preceptoría, el PAT ni el dictamen: esas etapas siguen asignadas a cada rol responsable.
 
@@ -234,7 +234,7 @@ Antes de publicar datos de menores fuera de la red escolar, revisar autorizació
 npm run db:migrate   # aplica migraciones pendientes
 npm run db:seed      # carga datos institucionales de prueba si la base está vacía
 npm run db:reset     # borra y recrea el conjunto de prueba (no usar en producción)
-npm run db:dedupe    # quita nombres repetidos sin borrar datos
+npm run db:dedupe    # varía nombres y completa 20 alumnos por división sin borrar datos
 npm run check        # verifica sintaxis del backend y frontend
 ```
 

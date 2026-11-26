@@ -2681,21 +2681,15 @@
     toast('Continúa con la contraseña inicial. Le volveremos a recordar en el próximo ingreso.', 'success');
   }
 
-  function skipForcedPassword() {
-    deferPasswordChange();
-    closeModal('modal-password');
-  }
-
   function openPasswordModal(forced) {
     state.forcedPassword = Boolean(forced);
     $('#modal-password').classList.toggle('forced', state.forcedPassword);
     $('#password-forced-note').classList.toggle('hidden', !state.forcedPassword);
     if (state.forcedPassword) {
-      $('#password-forced-note').textContent = 'Le recomendamos actualizar la contraseña inicial 123. Puede hacerlo ahora o continuar con “Hacerlo más tarde”.';
+      $('#password-forced-note').textContent = 'Le recomendamos actualizar la contraseña inicial 123. Si prefiere hacerlo después, cierre el aviso con la ✕ de la esquina superior izquierda.';
     } else {
       $('#password-forced-note').textContent = 'Por seguridad, debe cambiar la contraseña temporal antes de continuar.';
     }
-    $('#btn-skip-password')?.classList.toggle('hidden', !state.forcedPassword);
     $('#pwd-current').value = '';
     $('#pwd-new').value = '';
     $('#pwd-confirm').value = '';
@@ -3013,7 +3007,6 @@
     $('#convivenciaForm')?.addEventListener('input', event => {
       if (event.target.id === 'field-student_text') updateCharCounter(event.target);
     });
-    $('#btn-skip-password')?.addEventListener('click', skipForcedPassword);
     $('#prorrogaForm')?.addEventListener('submit', submitProrroga);
     $('#btn-form-reset')?.addEventListener('click', () => {
       if (state.editingReport) renderReportForm(state.editingReport);

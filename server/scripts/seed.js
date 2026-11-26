@@ -242,20 +242,28 @@ async function main() {
       }
     }
 
-    // Nómina ampliada: 5 alumnos por división, con nombres completos únicos.
-    // El índice 0 (6.° 2.°) conserva la nómina histórica sin modificaciones.
-    const targetCourses = COURSES.map((_, index) => index);
+    // Nómina ampliada: 20 alumnos por división, con nombres y apellidos
+    // argentinos variados. El índice 0 (6.° 2.°) conserva la nómina histórica.
+    const targetCourses = COURSES.map((_, index) => index).filter(index => index !== 0);
+    let nextDni = Math.max(46234042, ...existingStudents.rows.map(row => Number(row.dni) || 0)) + 1;
     let addedStudents = 0;
-    for (let index = 0; index < 95; index += 1) {
-      const dni = String(46234042 + index);
-      // Si el legajo ya existe, se omite: el seed es aditivo, no duplica.
-      if (dniSet.has(dni)) continue;
-      dniSet.add(dni);
-      const generated = nextGeneratedName(nameCursor, reservedNames);
-      nameCursor = generated.cursor;
-      const courseIndex = targetCourses[index % targetCourses.length];
-      await ensureStudent(generated.first, generated.last, dni, courseIndex, `2010-${String((index % 12) + 1).padStart(2, '0')}-15`);
-      addedStudents += 1;
+    for (const courseIndex of targetCourses) {
+      const current = await client.query(
+        'SELECT count(*)::int AS n FROM students WHERE course_id = $1',
+        [courseIds[courseIndex]]
+      );
+      const missing = Math.max(0, 20 - Number(current.rows[0].n));
+      for (let n = 0; n < missing; n += 1) {
+        let dni = String(nextDni++);
+        while (dniSet.has(dni)) dni = String(nextDni++);
+        dniSet.add(dni);
+        const generated = nextGeneratedName(nameCursor, reservedNames);
+        nameCursor = generated.cursor;
+        const birthYear = 2010 - (6 - COURSES[courseIndex].year);
+        const birth = `${birthYear}-${String((n % 12) + 1).padStart(2, '0')}-15`;
+        await ensureStudent(generated.first, generated.last, dni, courseIndex, birth);
+        addedStudents += 1;
+      }
     }
 
     const studentRows = (await client.query(

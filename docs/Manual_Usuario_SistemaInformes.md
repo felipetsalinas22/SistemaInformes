@@ -6,7 +6,7 @@ Escuela Técnica N.º 35 D.E. 18 “Ing. Eduardo Latzina”
 
 1. Abra `http://localhost:3000/SistemaDeInformes` o la dirección pública informada por la escuela.
 2. Ingrese con su correo institucional `@latzina.edu.ar`. Las familias/tutores también pueden ingresar con el correo externo que tengan registrado (por ejemplo `@gmail.com`), siempre que la administración lo haya vinculado a sus alumnos.
-3. Si es la primera vez, el sistema le recomienda cambiar la clave inicial `123`. Puede hacerlo en el momento o elegir **Hacerlo más tarde** y cambiarla después desde **Mi cuenta**. El diálogo tiene además un botón ✕ para cerrarlo.
+3. Si es la primera vez, el sistema le recomienda cambiar la clave inicial `123`. Puede hacerlo en el momento o cerrar el aviso con la ✕ de la esquina superior izquierda y cambiarla después desde **Mi cuenta**.
 
 > No comparta su contraseña. Las cuentas las crea solamente la administración.
 
